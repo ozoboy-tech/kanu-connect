@@ -1,0 +1,56 @@
+name: CI Kanu Connect
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Tests, types et build
+    runs-on: windows-2025
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        shell: pwsh
+
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+
+    steps:
+      - name: Recuperer le code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - name: Installer Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: "24.21.0"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Aligner la version de npm
+        run: npm install --global npm@11.19.0 --ignore-scripts
+
+      - name: Installer les dependances
+        run: npm run setup:windows
+
+      - name: Executer les tests unitaires
+        run: npm test
+
+      - name: Verifier TypeScript
+        run: npm run typecheck
+
+      - name: Compiler pour la production
+        run: npm run build
