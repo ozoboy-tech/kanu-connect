@@ -180,7 +180,9 @@ describe("Reprise contrôlée de la migration members", () => {
   "0009_member_auth_tokens.sql",
   "0010_member_auth_limits.sql",
   "0011_member_oauth_link_intents.sql",
+  "0012_posts.sql",
+  "0013_post_keywords.sql",
 ]);
-expect(applied).toHaveLength(11);
+expect(applied).toHaveLength(13);
 });
 });
