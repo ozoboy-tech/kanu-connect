@@ -28,6 +28,15 @@ describe("Configuration de la connexion MySQL", () => {
     ).toBe(3306);
   });
 
+  it("transmet une adresse IPv6 sans crochets au pilote MySQL", () => {
+    const config = parseDatabaseUrl(
+      "mysql://kanu_app_dev:secret@[::1]:3306/kanuconnectdev",
+      "kanuconnectdev",
+    );
+
+    expect(config.host).toBe("::1");
+  });
+
   it.each([
     undefined,
     "",
