@@ -6,6 +6,8 @@ import mysql from "mysql2/promise";
 
 import { planMigrations } from
   "../src/server/database/plan-migrations.ts";
+import { inspectMembersSchema } from
+  "../src/server/database/verify-members-schema.ts";
 
 const migrationDirectory = fileURLToPath(
   new URL("../db/migrations/", import.meta.url),
@@ -51,7 +53,7 @@ async function readMigrationFiles() {
   );
 }
 
-export async function runMigrations(target, password) {
+async function withMigrationSession(target, password, operation) {
   const config = getTargetConfig(target);
 
   if (typeof password !== "string" || password.length === 0) {
@@ -141,40 +143,96 @@ export async function runMigrations(target, password) {
       })),
     );
 
-    for (const migration of pending) {
-      await connection.query(migration.sql);
-
-      await connection.execute(
-        `
-          INSERT INTO _kanu_migrations
-            (name, checksum, applied_at)
-          VALUES (?, ?, UTC_TIMESTAMP(3))
-        `,
-        [migration.name, migration.checksum],
-      );
-    }
-
-    return {
-      database: config.database,
-      applied: pending.map((migration) => migration.name),
-    };
+    return await operation(connection, config, pending);
   } finally {
     await connection.end();
   }
 }
 
+async function membersTableExists(connection) {
+  const [tables] = await connection.query(`
+    SELECT 1 AS present FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'members'
+      AND TABLE_TYPE = 'BASE TABLE'
+  `);
+  return tables.length > 0;
+}
+
+async function recordMigration(connection, migration) {
+  await connection.execute(
+    `INSERT INTO _kanu_migrations
+       (name, checksum, applied_at)
+     VALUES (?, ?, UTC_TIMESTAMP(3))`,
+    [migration.name, migration.checksum],
+  );
+}
+
+export async function runMigrations(target, password) {
+  return withMigrationSession(target, password,
+    async (connection, config, pending) => {
+      if (pending[0]?.name === "0001_members.sql" &&
+          await membersTableExists(connection)) {
+        throw new Error(
+          "La table members existe sans journal. Vérifiez la structure " +
+          "puis utilisez reconcile explicitement.",
+        );
+      }
+
+      for (const migration of pending) {
+        await connection.query(migration.sql);
+        await recordMigration(connection, migration);
+      }
+
+      return {
+        database: config.database,
+        applied: pending.map((migration) => migration.name),
+      };
+    },
+  );
+}
+
+export async function reconcileMembersMigration(target, password) {
+  return withMigrationSession(target, password,
+    async (connection, config, pending) => {
+      const migration = pending[0];
+      if (migration?.name !== "0001_members.sql") {
+        return { database: config.database, reconciled: false };
+      }
+      if (!await membersTableExists(connection)) {
+        throw new Error("Reprise refusée : la table members est absente.");
+      }
+      if (!await inspectMembersSchema(connection)) {
+        throw new Error("Reprise refusée : structure members non conforme.");
+      }
+      await recordMigration(connection, migration);
+      return { database: config.database, reconciled: true };
+    },
+  );
+}
+
 if (import.meta.main) {
-  const target = process.argv[2];
 
   try {
+    const [command, argument, extra] = process.argv.slice(2);
+    const reconcile = command === "reconcile";
+    if (extra !== undefined ||
+        (reconcile && argument === undefined) ||
+        (!reconcile && argument !== undefined)) {
+      throw new TypeError("Commande de migration invalide.");
+    }
+    const target = reconcile ? argument : command;
     const config = getTargetConfig(target);
     const password = process.env[config.passwordVariable];
-    const result = await runMigrations(target, password);
-
-    console.log(
-      `Base ${result.database} : ` +
-      `${result.applied.length} migration(s) appliquée(s).`,
-    );
+    if (reconcile) {
+      const result = await reconcileMembersMigration(target, password);
+      console.log(`Base ${result.database} : reprise ` +
+        (result.reconciled ? "effectuée." : "non nécessaire."));
+    } else {
+      const result = await runMigrations(target, password);
+      console.log(`Base ${result.database} : ` +
+        `${result.applied.length} migration(s) appliquée(s).`);
+    }
   } catch (error) {
     console.error(
       error instanceof Error
