@@ -174,7 +174,13 @@ describe("Reprise contrôlée de la migration members", () => {
   "0003_member_profiles.sql",
   "0004_member_profile_skills.sql",
   "0005_member_profile_hobbies.sql",
+  "0006_member_email_credentials.sql",
+  "0007_member_oauth_accounts.sql",
+  "0008_member_sessions.sql",
+  "0009_member_auth_tokens.sql",
+  "0010_member_auth_limits.sql",
+  "0011_member_oauth_link_intents.sql",
 ]);
-expect(applied).toHaveLength(5);
+expect(applied).toHaveLength(11);
 });
 });
