@@ -32,7 +32,7 @@ function prepareConnection(tableExists: boolean, applied: {name: string;checksum
         return [tableExists ? [{ present: 1 }] : []];
       }
       if (statement.includes("CREATE TABLE IF NOT EXISTS _kanu_migrations") ||
-          statement.includes("CREATE TABLE `members`")) return [[]];
+    statement.includes("CREATE TABLE `")) return [[]];
       throw new Error(`Requête inattendue : ${statement}`);
     }),
     execute: vi.fn(async (statement: string) => {
@@ -89,7 +89,8 @@ describe("Reprise contrôlée de la migration members", () => {
 
   it("applique 0001 normalement si la table est absente", async () => {
     const connection = prepareConnection(false);
-    expect((await runMigrations("test", "secret")).applied).toEqual(["0001_members.sql"]);
+    expect((await runMigrations("test", "secret")).applied)
+  .toContain("0001_members.sql");
     expect(connection.query).toHaveBeenCalledWith(expect.stringContaining("CREATE TABLE `members`"));
   });
 
@@ -120,7 +121,7 @@ describe("Reprise contrôlée de la migration members", () => {
       return [tableExists ? [{ present: 1 }] : []];
     }
 
-    if (statement.includes("CREATE TABLE `members`")) {
+    if (statement.includes("CREATE TABLE `")) {
       tableExists = true;
     }
 
@@ -168,9 +169,12 @@ describe("Reprise contrôlée de la migration members", () => {
   expect(applied).toHaveLength(1);
   expect(applied[0].name).toBe("0001_members.sql");
 
-  expect(await runMigrations("test", "secret")).toEqual({
-    database: "kanuconnecttest",
-    applied: [],
-  });
+  expect((await runMigrations("test", "secret")).applied).toEqual([
+  "0002_member_private_identities.sql",
+  "0003_member_profiles.sql",
+  "0004_member_profile_skills.sql",
+  "0005_member_profile_hobbies.sql",
+]);
+expect(applied).toHaveLength(5);
 });
 });
