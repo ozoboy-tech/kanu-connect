@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-
+import { createHash } from "node:crypto";
 import {
   planMigrations,
   type MigrationFile,
@@ -97,5 +97,38 @@ describe("Planification des migrations MySQL", () => {
     expect(() =>
       planMigrations([{ ...first, sql: " \n " }], []),
     ).toThrow();
+  });
+  it("calcule la même empreinte pour LF et CRLF", () => {
+    const sqlLf = "CREATE TABLE members (\n  id BIGINT PRIMARY KEY\n);";
+    const sqlCrLf = sqlLf.replace(/\n/g, "\r\n");
+  
+    const migration = {
+      name: "0001_members.sql",
+      sql: sqlLf,
+    };
+  
+    const lfChecksum = planMigrations([migration], [])[0].checksum;
+    const crLfChecksum = planMigrations(
+      [{ ...migration, sql: sqlCrLf }],
+      [],
+    )[0].checksum;
+  
+    expect(crLfChecksum).toBe(lfChecksum);
+  });
+  
+  it("accepte une ancienne empreinte CRLF déjà enregistrée", () => {
+    const sqlLf = "CREATE TABLE members (\n  id BIGINT PRIMARY KEY\n);";
+    const sqlCrLf = sqlLf.replace(/\n/g, "\r\n");
+  
+    const legacyChecksum = createHash("sha256")
+      .update(sqlCrLf, "utf8")
+      .digest("hex");
+  
+    expect(
+      planMigrations(
+        [{ name: "0001_members.sql", sql: sqlLf }],
+        [{ name: "0001_members.sql", checksum: legacyChecksum }],
+      ),
+    ).toEqual([]);
   });
 });
