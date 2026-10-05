@@ -107,4 +107,70 @@ describe("Reprise contrôlée de la migration members", () => {
       expect.stringContaining("INSERT INTO _kanu_migrations"), expect.anything(),
     );
   });
+  it("reprend après un échec du journal qui suit la création de members", async () => {
+  const applied: { name: string; checksum: string }[] = [];
+  const connection = prepareConnection(false, applied);
+  const originalQuery = connection.query.getMockImplementation()!;
+  const originalExecute = connection.execute.getMockImplementation()!;
+  let tableExists = false;
+  let failInsertOnce = true;
+
+  connection.query.mockImplementation(async (statement: string) => {
+    if (statement.includes("information_schema.TABLES")) {
+      return [tableExists ? [{ present: 1 }] : []];
+    }
+
+    if (statement.includes("CREATE TABLE `members`")) {
+      tableExists = true;
+    }
+
+    return originalQuery(statement);
+  });
+
+  connection.execute.mockImplementation(
+    async (statement: string, params?: string[]) => {
+      if (statement.includes("INSERT INTO _kanu_migrations")) {
+        if (failInsertOnce) {
+          failInsertOnce = false;
+          throw new Error("Panne simulée du journal");
+        }
+
+        applied.push({
+          name: params![0],
+          checksum: params![1],
+        });
+        return [{}];
+      }
+
+      return originalExecute(statement);
+    },
+  );
+
+  await expect(runMigrations("test", "secret")).rejects.toThrow(
+    "Panne simulée du journal",
+  );
+  expect(tableExists).toBe(true);
+  expect(applied).toEqual([]);
+
+  await expect(runMigrations("test", "secret")).rejects.toThrow(
+    /reconcile/,
+  );
+
+  mocks.inspectMembersSchema.mockResolvedValue(true);
+
+  expect(
+    await reconcileMembersMigration("test", "secret"),
+  ).toEqual({
+    database: "kanuconnecttest",
+    reconciled: true,
+  });
+
+  expect(applied).toHaveLength(1);
+  expect(applied[0].name).toBe("0001_members.sql");
+
+  expect(await runMigrations("test", "secret")).toEqual({
+    database: "kanuconnecttest",
+    applied: [],
+  });
+});
 });
