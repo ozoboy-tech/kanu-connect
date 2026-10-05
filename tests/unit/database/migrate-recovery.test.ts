@@ -182,7 +182,8 @@ describe("Reprise contrôlée de la migration members", () => {
   "0011_member_oauth_link_intents.sql",
   "0012_posts.sql",
   "0013_post_keywords.sql",
+  "0014_post_comments.sql",
 ]);
-expect(applied).toHaveLength(13);
+expect(applied).toHaveLength(14);
 });
 });

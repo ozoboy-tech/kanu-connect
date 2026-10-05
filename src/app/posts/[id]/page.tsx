@@ -5,6 +5,8 @@ import { validPostId } from "@/modules/posts/domain/post-input";
 import { authPool } from "@/server/auth/db";
 import { getPost } from "@/server/posts/post-repository";
 import PostActions from "./post-actions";
+import Comments from "./comments";
+
 
 export default async function PostPage({ params }: {
   params: Promise<{ id: string }>;
@@ -31,5 +33,7 @@ export default async function PostPage({ params }: {
       <p>Mots-clés : {post.keywords.join(", ")}</p>
     </>}
     {mayEdit && <PostActions id={post.id} />}
+    <Comments postId={post.id} viewerId={session?.user.id ?? null}
+      canWrite={!!session?.user.onboarded && !post.deleted} />
   </main>;
 }
