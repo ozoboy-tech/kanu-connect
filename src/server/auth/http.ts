@@ -15,12 +15,15 @@ export function sameOrigin(request: NextRequest): boolean {
   }
 }
 
-export async function bodyOf(request: NextRequest): Promise<Record<string, unknown>> {
+export async function bodyOf(
+  request: NextRequest,
+  maxChars = 4096,
+): Promise<Record<string, unknown>> {
   if (!request.headers.get("content-type")?.startsWith("application/json")) {
     throw new TypeError("JSON requis.");
   }
   const raw = await request.text();
-  if (raw.length > 4096) throw new TypeError("Requête trop volumineuse.");
+  if (raw.length > maxChars) throw new TypeError("Requête trop volumineuse.");
   const data: unknown = JSON.parse(raw);
   if (!data || typeof data !== "object" || Array.isArray(data)) {
     throw new TypeError("Objet JSON requis.");

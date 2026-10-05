@@ -7,7 +7,7 @@ export default async function Home() {
   return (
     <main>
       <div>KANU CONNECT</div>
-      {session && <p>Connecté : {session.user.id}</p>}
+      {session && <p><a href="/profile">Mon profil</a></p>}
       {session && <a href="/api/auth/signout">Se déconnecter</a>}
       {!session && <nav>
         <a href="/register">Créer un compte</a>{" · "}
