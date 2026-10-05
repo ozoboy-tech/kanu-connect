@@ -16,6 +16,12 @@ export interface PendingMigration extends MigrationFile {
 
 const filenamePattern = /^(\d{4})_[a-z0-9][a-z0-9_-]*\.sql$/;
 
+function checksumOf(sql: string): string {
+  return createHash("sha256")
+    .update(sql, "utf8")
+    .digest("hex");
+}
+
 export function planMigrations(
   files: readonly MigrationFile[],
   applied: readonly AppliedMigration[],
@@ -23,6 +29,10 @@ export function planMigrations(
   const versions = new Set<string>();
 
   const ordered = files.map((file): PendingMigration => {
+    if (file.name.length > 128) {
+      throw new TypeError("Nom de migration trop long.");
+    }
+
     const match = filenamePattern.exec(file.name);
 
     if (!match || !file.sql.trim()) {
@@ -37,12 +47,12 @@ export function planMigrations(
 
     versions.add(version);
 
+    const normalizedSql = file.sql.replace(/\r\n/g, "\n");
+
     return {
       name: file.name,
       sql: file.sql,
-      checksum: createHash("sha256")
-        .update(file.sql, "utf8")
-        .digest("hex"),
+      checksum: checksumOf(normalizedSql),
     };
   });
 
@@ -68,7 +78,16 @@ export function planMigrations(
       throw new Error("Historique de migrations incomplet ou inconnu.");
     }
 
-    if (expected.checksum !== record.checksum) {
+    // Compatibilité avec les empreintes calculées auparavant
+    // sur un fichier Windows dont les lignes étaient en CRLF.
+    const legacyCrLfChecksum = checksumOf(
+      expected.sql.replace(/\r?\n/g, "\r\n"),
+    );
+
+    if (
+      record.checksum !== expected.checksum &&
+      record.checksum !== legacyCrLfChecksum
+    ) {
       throw new Error("Empreinte de migration modifiée.");
     }
   }
