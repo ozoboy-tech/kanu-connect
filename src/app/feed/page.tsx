@@ -21,6 +21,7 @@ export default async function FeedPage({ searchParams }: {
   return <main>
     <h1>Publications récentes</h1>
     <p><a href="/posts/new">Créer une publication</a></p>
+    <p><a href="/projects">Découvrir les projets</a></p>
     <nav><a href="/feed">Tous</a>{" · "}
       {spaces.map((item) => <span key={item}>
         <a href={`/feed?space=${item}`}>{labels[item]}</a>{" · "}
