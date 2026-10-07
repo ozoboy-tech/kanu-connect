@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import VoteButton from "@/app/components/vote-button";
 
 interface CommentItem {
   id: string;
@@ -100,6 +101,9 @@ export default function Comments({ postId, viewerId, canWrite }: {
           <a href={`/u/${item.authorHandle}`}>@{item.authorHandle}</a> :{" "}
           <span style={{ whiteSpace: "pre-wrap" }}>{item.body}</span>
         </>}</p>
+        {!item.deleted && <VoteButton kind="comment" id={item.id}
+          viewerId={viewerId} authorId={item.authorId}
+          canVote={canWrite} />}
         {canWrite && item.depth < 4 &&
           <button type="button" onClick={() => setReplyTo(item.id)}>Répondre</button>}
         {mayEdit && <>
