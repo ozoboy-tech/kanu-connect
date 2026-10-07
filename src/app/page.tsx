@@ -8,6 +8,8 @@ export default async function Home() {
     <main>
       <div>KANU CONNECT</div>
       <p><a href="/feed">Publications</a> · <a href="/projects">Projets</a></p>
+      {session?.user.onboarded && <p><a href="/feed?feed=following">Mon fil</a></p>}
+
       {session && <p><a href="/profile">Mon profil</a></p>}
       {session && <a href="/api/auth/signout">Se déconnecter</a>}
       {!session && <nav>
