@@ -3,7 +3,7 @@ import { ACTION_POINTS, badgesForPoints } from
   "@/modules/reputation/domain/reputation-rules";
 
 it("fixe le barème des activités", () => {
-  expect(ACTION_POINTS).toEqual({ post: 5, comment: 2, project: 8, follow: 1 });
+expect(ACTION_POINTS).toEqual({ post: 5, comment: 2, project: 8, follow: 1, streak: 5 });
 });
 
 it.each([

@@ -187,7 +187,9 @@ describe("Reprise contrôlée de la migration members", () => {
   "0016_member_follows.sql",
   "0017_member_reputation.sql",
   "0018_member_reputation_events.sql",
+  "0019_member_streaks.sql",
+  "0020_member_streak_days.sql",
 ]);
-expect(applied).toHaveLength(18);
+expect(applied).toHaveLength(20);
 });
 });
