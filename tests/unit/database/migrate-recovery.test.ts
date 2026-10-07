@@ -185,7 +185,9 @@ describe("Reprise contrôlée de la migration members", () => {
   "0014_post_comments.sql",
   "0015_member_projects.sql",
   "0016_member_follows.sql",
+  "0017_member_reputation.sql",
+  "0018_member_reputation_events.sql",
 ]);
-expect(applied).toHaveLength(16);
+expect(applied).toHaveLength(18);
 });
 });

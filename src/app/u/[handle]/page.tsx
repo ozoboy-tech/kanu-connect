@@ -5,6 +5,7 @@ import { authPool } from "@/server/auth/db";
 import { getFollowStats } from "@/server/members/follow-repository";
 import { getPublicProfile } from "@/server/members/profile-repository";
 import { listMemberProjects } from "@/server/projects/project-repository";
+import { getReputation } from "@/server/reputation/reputation-repository";
 import FollowPanel from "./follow-panel";
 
 
@@ -20,6 +21,7 @@ export default async function PublicProfilePage({
     const profile = await getPublicProfile(connection, handle);
     if (!profile) notFound();
 const projects = await listMemberProjects(connection, handle);
+    const reputation = await getReputation(connection, handle);
     const stats = await getFollowStats(connection, handle, session?.user.id ?? null);
     if (!stats) notFound();
     return <main>
@@ -34,6 +36,9 @@ const projects = await listMemberProjects(connection, handle);
         alt={`Photo de ${profile.handle}`} width={128} height={128} />}
       {profile.bio && <p>{profile.bio}</p>}
       {profile.location && <p>Localisation : {profile.location}</p>}
+      <h2>Réputation</h2>
+      <p>{reputation?.points ?? 0} points</p>
+      <ul>{reputation?.badges.map((badge) => <li key={badge}>{badge}</li>)}</ul>
       <h2>Compétences</h2>
       <ul>{profile.skills.map((skill) => <li key={skill}>{skill}</li>)}</ul>
       <h2>Loisirs</h2>

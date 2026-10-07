@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 
 import type { ProjectInput, ProjectStatus } from "@/modules/projects/domain/project-input";
+import { awardActivity } from "@/server/reputation/reputation-repository";
 
 interface ProjectRow extends RowDataPacket {
   id: string;
@@ -100,23 +101,32 @@ export async function createProject(
   connection: PoolConnection, authorId: string, input: ProjectInput,
 ): Promise<PublicProject> {
   const id = randomUUID();
-  const [result] = await connection.execute<ResultSetHeader>(
-    `INSERT INTO member_projects
-     (public_id, member_id, title, summary, description, status,
-      technologies, repository_url, demo_url, created_at, updated_at)
-     SELECT ?, m.id, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP(3), UTC_TIMESTAMP(3)
-     FROM members m
-     JOIN member_profiles profile ON profile.member_id = m.id
-     JOIN member_private_identities private_identity ON private_identity.member_id = m.id
-     WHERE m.public_id = ?`,
-    [id, input.title, input.summary, input.description, input.status,
-      JSON.stringify(input.technologies), input.repositoryUrl, input.demoUrl, authorId],
-  );
-  if (result.affectedRows !== 1) throw new TypeError("Compte incomplet.");
+  await connection.beginTransaction();
+  try {
+    const [result] = await connection.execute<ResultSetHeader>(
+      `INSERT INTO member_projects
+       (public_id, member_id, title, summary, description, status,
+        technologies, repository_url, demo_url, created_at, updated_at)
+       SELECT ?, m.id, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP(3), UTC_TIMESTAMP(3)
+       FROM members m
+       JOIN member_profiles profile ON profile.member_id = m.id
+       JOIN member_private_identities private_identity ON private_identity.member_id = m.id
+       WHERE m.public_id = ?`,
+      [id, input.title, input.summary, input.description, input.status,
+        JSON.stringify(input.technologies), input.repositoryUrl, input.demoUrl, authorId],
+    );
+    if (result.affectedRows !== 1) throw new TypeError("Compte incomplet.");
+    const [authors] = await connection.execute<(RowDataPacket & { id: number })[]>(
+      "SELECT id FROM members WHERE public_id = ?", [authorId],
+    );
+    await awardActivity(connection, authors[0].id, "project", result.insertId);
+    await connection.commit();
+  } catch (error) { await connection.rollback(); throw error; }
   const project = await getProject(connection, id);
   if (!project) throw new Error("Projet introuvable après création.");
   return project;
 }
+
 
 export type ProjectMutation = "ok" | "not_found" | "forbidden";
 
