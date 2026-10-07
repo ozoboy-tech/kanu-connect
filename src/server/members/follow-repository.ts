@@ -1,4 +1,6 @@
-import type { PoolConnection, RowDataPacket } from "mysql2/promise";
+import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
+import { awardActivity } from "@/server/reputation/reputation-repository";
+
 
 interface MemberRow extends RowDataPacket {
   id: number;
@@ -61,21 +63,29 @@ export async function setFollow(
   );
   if (!targets[0] || !viewers[0]) return "not_found";
   if (targets[0].id === viewers[0].id) return "self";
-  if (follow) {
-    await connection.execute(
-      `INSERT INTO member_follows (follower_id, followed_id, created_at)
-       VALUES (?, ?, UTC_TIMESTAMP(3))
-       ON DUPLICATE KEY UPDATE followed_id = followed_id`,
-      [viewers[0].id, targets[0].id],
-    );
-  } else {
-    await connection.execute(
-      `DELETE FROM member_follows WHERE follower_id = ? AND followed_id = ?`,
-      [viewers[0].id, targets[0].id],
-    );
-  }
+  await connection.beginTransaction();
+  try {
+    if (follow) {
+      const [result] = await connection.execute<ResultSetHeader>(
+        `INSERT INTO member_follows (follower_id, followed_id, created_at)
+         VALUES (?, ?, UTC_TIMESTAMP(3))
+         ON DUPLICATE KEY UPDATE followed_id = followed_id`,
+        [viewers[0].id, targets[0].id],
+      );
+      if (result.affectedRows === 1) {
+        await awardActivity(connection, viewers[0].id, "follow", targets[0].id);
+      }
+    } else {
+      await connection.execute(
+        `DELETE FROM member_follows WHERE follower_id = ? AND followed_id = ?`,
+        [viewers[0].id, targets[0].id],
+      );
+    }
+    await connection.commit();
+  } catch (error) { await connection.rollback(); throw error; }
   return "ok";
 }
+
 
 export async function listConnections(
   connection: PoolConnection, handle: string,

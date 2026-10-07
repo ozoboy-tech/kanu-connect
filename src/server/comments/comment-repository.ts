@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 
 import type { CommentInput } from "@/modules/comments/domain/comment-input";
+import { awardActivity } from "@/server/reputation/reputation-repository";
 
 interface CommentRow extends RowDataPacket {
   id: string;
@@ -129,6 +130,10 @@ export async function createComment(
       [id, post.internalId, parentInternalId, depth, input.body, authorId],
     );
     if (result.affectedRows !== 1) throw new TypeError("Compte incomplet.");
+    const [authors] = await connection.execute<(RowDataPacket & { id: number })[]>(
+      "SELECT id FROM members WHERE public_id = ?", [authorId],
+    );
+    await awardActivity(connection, authors[0].id, "comment", result.insertId);
     await connection.commit();
   } catch (error) { await connection.rollback(); throw error; }
   const created = await getComment(connection, id);
