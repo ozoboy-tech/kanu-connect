@@ -1,9 +1,11 @@
 import { notFound } from "next/navigation";
-
+import { auth } from "@/auth";
 import { normalizeHandle } from "@/modules/members/domain/choose-handle";
 import { authPool } from "@/server/auth/db";
+import { getFollowStats } from "@/server/members/follow-repository";
 import { getPublicProfile } from "@/server/members/profile-repository";
 import { listMemberProjects } from "@/server/projects/project-repository";
+import FollowPanel from "./follow-panel";
 
 
 export default async function PublicProfilePage({
@@ -12,13 +14,22 @@ export default async function PublicProfilePage({
   let handle: string;
   try { handle = normalizeHandle((await params).handle); }
   catch { notFound(); }
+  const session = await auth();
   const connection = await authPool().getConnection();
   try {
     const profile = await getPublicProfile(connection, handle);
     if (!profile) notFound();
-    const projects = await listMemberProjects(connection, handle);
+const projects = await listMemberProjects(connection, handle);
+    const stats = await getFollowStats(connection, handle, session?.user.id ?? null);
+    if (!stats) notFound();
     return <main>
       <h1>@{profile.handle}</h1>
+      <FollowPanel handle={profile.handle} initial={stats}
+        canFollow={!!session?.user.onboarded && session.user.id !== profile.publicId} />
+      {!session?.user.id && <p><a href="/api/auth/signin">Connecte-toi</a>
+        {" pour suivre ce membre."}</p>}
+      {session?.user.id && !session.user.onboarded &&
+        <p><a href="/onboarding">Complète ton profil</a> pour suivre des membres.</p>}
       {profile.photoUrl && <img src={profile.photoUrl}
         alt={`Photo de ${profile.handle}`} width={128} height={128} />}
       {profile.bio && <p>{profile.bio}</p>}
