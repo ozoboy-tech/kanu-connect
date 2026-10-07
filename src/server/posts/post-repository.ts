@@ -83,12 +83,19 @@ export async function getPost(
 
 export async function listPosts(
   connection: PoolConnection, space: Space | null,
+  viewerId: string | null = null,
 ): Promise<PublicPost[]> {
+  const followingOnly = viewerId !== null;
   const [rows] = await connection.execute<PostRow[]>(
     `${projection} WHERE p.deleted_at IS NULL
      AND (? IS NULL OR p.space = ?)
+     ${followingOnly ? `AND (m.public_id = ? OR EXISTS (
+       SELECT 1 FROM member_follows f
+       JOIN members viewer ON viewer.id = f.follower_id
+       WHERE viewer.public_id = ? AND f.followed_id = p.member_id
+     ))` : ""}
      ORDER BY p.created_at DESC, p.id DESC LIMIT 20`,
-    [space, space],
+    followingOnly ? [space, space, viewerId, viewerId] : [space, space],
   );
   const output: PublicPost[] = [];
   for (const row of rows) output.push(await loadPost(connection, row));
