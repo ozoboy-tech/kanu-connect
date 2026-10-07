@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { validPostId } from "@/modules/posts/domain/post-input";
 import { authPool } from "@/server/auth/db";
 import { getPost } from "@/server/posts/post-repository";
+import VoteButton from "@/app/components/vote-button";
 import PostActions from "./post-actions";
 import Comments from "./comments";
 
@@ -30,7 +31,11 @@ export default async function PostPage({ params }: {
       <p style={{ whiteSpace: "pre-wrap" }}>{post.body}</p>
       {post.code && <section><h2>Code ({post.codeLanguage})</h2>
         <pre><code>{post.code}</code></pre></section>}
-      <p>Mots-clés : {post.keywords.join(", ")}</p>
+          <p>Mots-clés : {post.keywords.join(", ")}</p>
+      <VoteButton kind="post" id={post.id}
+        viewerId={session?.user.id ?? null}
+        authorId={post.authorId}
+        canVote={!!session?.user.onboarded} />
     </>}
     {mayEdit && <PostActions id={post.id} />}
     <Comments postId={post.id} viewerId={session?.user.id ?? null}

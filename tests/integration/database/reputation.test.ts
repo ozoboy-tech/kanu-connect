@@ -79,10 +79,10 @@ it("attribue une seule fois les points, plafonne la journée et affiche les badg
     );
     expect(events.map((row) => row.points)).toEqual([8, 8, 8, 8, 8, 2]);
     expect((await listLeaderboard(connection, "all"))[0]).toEqual({
-      handle: author.handle, points: 50,
+      handle: author.handle, points: 50, votes: 0,
     });
     expect((await listLeaderboard(connection, "week"))[0]).toEqual({
-      handle: author.handle, points: 50,
+      handle: author.handle, points: 50, votes: 0,
     });
   } finally {
     try {

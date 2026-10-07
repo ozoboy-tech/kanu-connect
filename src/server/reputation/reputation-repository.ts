@@ -6,7 +6,12 @@ import { ACTION_POINTS, badgesForPoints, type ReputationAction } from
 
 interface DayRow extends RowDataPacket { points: number }
 interface ScoreRow extends RowDataPacket { points: number | string }
-interface RankRow extends RowDataPacket { handle: string; points: number | string }
+interface RankRow extends RowDataPacket {
+  handle: string;
+  points: number | string;
+  votes: number | string;
+}
+
 
 // Le code appelant doit être dans la même transaction que la création de la source.
 export async function awardActivity(
@@ -69,15 +74,37 @@ export async function getReputation(
 
 export async function listLeaderboard(
   connection: PoolConnection, period: "all" | "week",
-): Promise<{ handle: string; points: number }[]> {
+): Promise<{ handle: string; points: number; votes: number }[]> {
   const filter = period === "week"
     ? "AND e.awarded_at >= UTC_TIMESTAMP(3) - INTERVAL 7 DAY" : "";
+  const voteFilter = period === "week"
+    ? "AND v.updated_at >= UTC_TIMESTAMP(3) - INTERVAL 7 DAY" : "";
   const [rows] = await connection.execute<RankRow[]>(
-    `SELECT p.handle, COALESCE(SUM(e.points), 0) AS points
+    `SELECT p.handle, COALESCE(SUM(e.points), 0) AS points,
+       (SELECT COUNT(*) FROM post_votes v
+        JOIN posts post ON post.id = v.post_id
+        WHERE post.member_id = p.member_id AND post.deleted_at IS NULL
+          AND v.active = 1 ${voteFilter}) +
+       (SELECT COUNT(*) FROM comment_votes v
+        JOIN post_comments c ON c.id = v.comment_id
+        JOIN posts parent ON parent.id = c.post_id
+        WHERE c.member_id = p.member_id AND c.deleted_at IS NULL
+          AND parent.deleted_at IS NULL AND v.active = 1 ${voteFilter}) +
+       (SELECT COUNT(*) FROM project_votes v
+        JOIN member_projects project ON project.id = v.project_id
+        WHERE project.member_id = p.member_id
+          AND project.deleted_at IS NULL
+          AND v.active = 1 ${voteFilter}) AS votes
      FROM member_profiles p
-     LEFT JOIN member_reputation_events e ON e.member_id = p.member_id ${filter}
+     LEFT JOIN member_reputation_events e
+       ON e.member_id = p.member_id ${filter}
      GROUP BY p.member_id, p.handle
-     ORDER BY points DESC, p.handle ASC LIMIT 50`,
+     ORDER BY points DESC, votes DESC, p.handle ASC LIMIT 50`,
   );
-  return rows.map((row) => ({ handle: row.handle, points: Number(row.points) }));
+  return rows.map((row) => ({
+    handle: row.handle,
+    points: Number(row.points),
+    votes: Number(row.votes),
+  }));
 }
+
