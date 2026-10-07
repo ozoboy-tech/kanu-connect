@@ -11,10 +11,24 @@ export async function GET(request: NextRequest): Promise<Response> {
   if (raw !== null && !spaces.includes(raw as Space)) {
     return failure("Espace invalide.", 400);
   }
+  const feed = request.nextUrl.searchParams.get("feed");
+  if (feed !== null && feed !== "following") {
+    return failure("Fil invalide.", 400);
+  }
   try {
+    const session = feed === "following" ? await auth() : null;
+    if (feed === "following" && !session?.user?.id) {
+      return failure("Connexion requise.", 401);
+    }
+    if (feed === "following" && !session?.user.onboarded) {
+      return failure("Profil à compléter.", 403);
+    }
     const connection = await authPool().getConnection();
     try {
-      const posts = await listPosts(connection, raw as Space | null);
+      const posts = await listPosts(
+        connection, raw as Space | null,
+        feed === "following" ? session!.user.id : null,
+      );
       return Response.json(posts, { headers: { "Cache-Control": "no-store" } });
     } finally { connection.release(); }
   } catch (error) { return publicError(error); }
