@@ -3,6 +3,7 @@ export const ACTION_POINTS = {
   comment: 2,
   project: 8,
   follow: 1,
+  streak: 5,
 } as const;
 
 export type ReputationAction = keyof typeof ACTION_POINTS;

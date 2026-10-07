@@ -6,6 +6,7 @@ import { getFollowStats } from "@/server/members/follow-repository";
 import { getPublicProfile } from "@/server/members/profile-repository";
 import { listMemberProjects } from "@/server/projects/project-repository";
 import { getReputation } from "@/server/reputation/reputation-repository";
+import { getPublicStreak } from "@/server/streaks/streak-repository";
 import FollowPanel from "./follow-panel";
 
 
@@ -22,6 +23,7 @@ export default async function PublicProfilePage({
     if (!profile) notFound();
 const projects = await listMemberProjects(connection, handle);
     const reputation = await getReputation(connection, handle);
+    const streak = await getPublicStreak(connection, handle);
     const stats = await getFollowStats(connection, handle, session?.user.id ?? null);
     if (!stats) notFound();
     return <main>
@@ -39,6 +41,10 @@ const projects = await listMemberProjects(connection, handle);
       <h2>Réputation</h2>
       <p>{reputation?.points ?? 0} points</p>
       <ul>{reputation?.badges.map((badge) => <li key={badge}>{badge}</li>)}</ul>
+      <h2>Flamme</h2>
+      <p>🔥 {streak?.currentDays ?? 0} jours · Record : {streak?.bestDays ?? 0} jours</p>
+      {streak?.hasThreeDayBadge && <p>Badge : Flamme 3 jours</p>}
+
       <h2>Compétences</h2>
       <ul>{profile.skills.map((skill) => <li key={skill}>{skill}</li>)}</ul>
       <h2>Loisirs</h2>

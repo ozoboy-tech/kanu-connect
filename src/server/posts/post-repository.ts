@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
-
 import type { PostInput, Space } from "@/modules/posts/domain/post-input";
 import { awardActivity } from "@/server/reputation/reputation-repository";
+import { recordUsefulActivity } from "@/server/streaks/streak-repository";
 
 interface PostRow extends RowDataPacket {
   internalId: number;
@@ -132,6 +132,7 @@ export async function createPost(
       "SELECT id FROM members WHERE public_id = ?", [authorId],
     );
     await awardActivity(connection, authors[0].id, "post", result.insertId);
+    await recordUsefulActivity(connection, authors[0].id);
     await connection.commit();
   } catch (error) { await connection.rollback(); throw error; }
   const created = await getPost(connection, id);
