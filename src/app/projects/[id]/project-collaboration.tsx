@@ -83,6 +83,8 @@ export default function ProjectCollaboration({ projectId, viewerId, onboarded }:
     {error && <p role="alert">{error}</p>}
     {busy && <p role="status">Chargement…</p>}
     {data && <>
+      {(data.isOwner || data.requests.some((request) => request.status === "accepted")) &&
+        <p><a href={`/projects/${projectId}/discussion`}>Ouvrir la discussion du projet</a></p>}
       {data.isOwner && data.requests.length === 0 && <p>Aucune demande pour le moment.</p>}
       {!data.isOwner && data.requests.length === 0 && <form onSubmit={(event) => {
         event.preventDefault();
