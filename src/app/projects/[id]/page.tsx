@@ -6,6 +6,8 @@ import { getProject } from "@/server/projects/project-repository";
 import VoteButton from "@/app/components/vote-button";
 import ReportButton from "@/app/components/report-button";
 import ProjectActions from "./project-actions";
+import ProjectCollaboration from "./project-collaboration";
+
 
 const labels = { idea: "Idée", building: "En cours", live: "Disponible" };
 
@@ -34,8 +36,6 @@ export default async function ProjectPage({ params }: {
         rel="noopener noreferrer">Dépôt du projet</a></p>}
             {project.demoUrl && <p><a href={project.demoUrl}
         rel="noopener noreferrer">Démonstration</a></p>}
-      {project.demoUrl && <p><a href={project.demoUrl}
-        rel="noopener noreferrer">Démonstration</a></p>}
       <VoteButton kind="project" id={project.id}
         viewerId={session?.user.id ?? null}
         authorId={project.authorId}
@@ -47,8 +47,11 @@ export default async function ProjectPage({ params }: {
 
 
 
-    </>}=
+    </>}
     {!project.deleted && session?.user.id === project.authorId &&
       <ProjectActions id={project.id} />}
+    {!project.deleted && <ProjectCollaboration projectId={project.id}
+      viewerId={session?.user.id ?? null} onboarded={!!session?.user.onboarded} />}
+
   </main>;
 }

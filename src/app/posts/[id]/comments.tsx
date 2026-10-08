@@ -159,7 +159,19 @@ export default function Comments({
           onChanged={() => void reloadSolution().catch(
             () => setMessage("Solution indisponible."),
           )} />}
+        {!item.deleted && <ReportButton kind="comment"
+          id={item.id}
+          viewerId={viewerId}
+          authorId={item.authorId}
+          canReport={canWrite}
+          onHidden={() => {
+            void reload().catch(() =>
+              setMessage("Commentaires indisponibles."));
+            void reloadSolution().catch(() =>
+              setMessage("Solution indisponible."));
+          }} />}
         {!item.deleted && solution?.commentId === item.id &&
+
           <strong> Solution de la communauté · {solution.votes} votes</strong>}
 
         {canWrite && item.depth < 4 &&
