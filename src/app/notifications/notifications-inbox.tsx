@@ -8,6 +8,10 @@ const labels = {
   accepted: "a accepté ta demande de collaboration",
   rejected: "a refusé ta demande de collaboration",
   discussion: "a envoyé un message dans la discussion",
+  publication: "a publié un nouveau contenu",
+  reply: "t’a répondu",
+  mention: "t’a mentionné dans un contenu",
+
 };
 
 export default function NotificationsInbox({ initialPage }: { initialPage: NotificationPage }) {
@@ -67,9 +71,10 @@ export default function NotificationsInbox({ initialPage }: { initialPage: Notif
       <ul>{data.notifications.map((item) => <li key={item.id}>
         <p><strong>{item.readAt ? "Lue" : "Non lue"}</strong>{" — "}
           @{item.actorHandle} {labels[item.kind]}.</p>
-        <p><a href={`/projects/${item.projectId}${item.kind === "discussion" ? "/discussion" : ""}`}>
+        <p>{"projectId" in item ? <a
+          href={`/projects/${item.projectId}${item.kind === "discussion" ? "/discussion" : ""}`}>
           {item.projectTitle}
-        </a></p>
+        </a> : <a href={`/posts/${item.postId}`}>{item.postTitle}</a>}</p>
         <p><time dateTime={item.createdAt}>
           {item.createdAt.slice(0, 19).replace("T", " ")} UTC
         </time></p>
