@@ -5,6 +5,7 @@ import { awardActivity } from "@/server/reputation/reputation-repository";
 import { recordUsefulActivity } from "@/server/streaks/streak-repository";
 import { refreshSolution } from "@/server/solutions/solution-repository";
 import { hiddenSql } from "@/server/reports/report-rules";
+import { notifyPublication } from "@/server/notifications/community-notifications";
 
 interface PostRow extends RowDataPacket {
   internalId: number;
@@ -141,6 +142,12 @@ export async function createPost(
     );
     await awardActivity(connection, authors[0].id, "post", result.insertId);
     await recordUsefulActivity(connection, authors[0].id);
+    await notifyPublication(
+      connection,
+      result.insertId,
+      authors[0].id,
+      `${input.title}\n${input.body}`,
+    );
     await connection.commit();
   } catch (error) { await connection.rollback(); throw error; }
   const created = await getPost(connection, id);

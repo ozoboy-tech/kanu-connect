@@ -113,7 +113,7 @@ it("notifie les bons membres et protège la lecture de leurs notifications", asy
     expect(Object.keys(all[0]).sort()).toEqual([
       "actorHandle", "createdAt", "id", "kind", "projectId", "projectTitle", "readAt",
     ]);
-    expect(all[0].projectId).toBe(project.id);
+    expect(all[0]).toMatchObject({ projectId: project.id });
     expect(all[0].actorHandle).toBe(`no_owner_${suffix}`);
     expect((await list("absent")).notifications).toHaveLength(0);
     await expect(list(owner, "1 OR 1=1")).rejects.toThrow(TypeError);

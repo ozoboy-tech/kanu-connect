@@ -5,6 +5,7 @@ import { awardActivity } from "@/server/reputation/reputation-repository";
 import { recordUsefulActivity } from "@/server/streaks/streak-repository";
 import { refreshSolution } from "@/server/solutions/solution-repository";
 import { hiddenSql } from "@/server/reports/report-rules";
+import { notifyComment } from "@/server/notifications/community-notifications";
 
 interface CommentRow extends RowDataPacket {
   id: string;
@@ -159,8 +160,9 @@ export async function createComment(
     const [authors] = await connection.execute<(RowDataPacket & { id: number })[]>(
       "SELECT id FROM members WHERE public_id = ?", [authorId],
     );
-    await awardActivity(connection, authors[0].id, "comment", result.insertId);
+await awardActivity(connection, authors[0].id, "comment", result.insertId);
     await recordUsefulActivity(connection, authors[0].id);
+    await notifyComment(connection, result.insertId, input.body);
     await connection.commit();
   } catch (error) { await connection.rollback(); throw error; }
   const created = await getComment(connection, id);
