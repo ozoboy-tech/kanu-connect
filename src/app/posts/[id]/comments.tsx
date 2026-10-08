@@ -1,7 +1,7 @@
 "use client";
-
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import VoteButton from "@/app/components/vote-button";
+import ReportButton from "@/app/components/report-button";
 
 interface CommentItem {
   id: string;

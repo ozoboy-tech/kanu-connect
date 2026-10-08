@@ -4,6 +4,7 @@ import type { CommentInput } from "@/modules/comments/domain/comment-input";
 import { awardActivity } from "@/server/reputation/reputation-repository";
 import { recordUsefulActivity } from "@/server/streaks/streak-repository";
 import { refreshSolution } from "@/server/solutions/solution-repository";
+import { hiddenSql } from "@/server/reports/report-rules";
 
 interface CommentRow extends RowDataPacket {
   id: string;
@@ -15,17 +16,20 @@ interface CommentRow extends RowDataPacket {
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
+  hidden: number;
 }
 
 interface PostRow extends RowDataPacket {
   internalId: number;
   deletedAt: Date | null;
+  hidden: number;
 }
 
 interface ParentRow extends RowDataPacket {
   internalId: number;
   postId: number;
   depth: number;
+  hidden: number;
 }
 
 interface LockedComment extends RowDataPacket {
@@ -51,21 +55,32 @@ export interface PublicComment {
 const projection = `SELECT c.public_id AS id, parent.public_id AS parentId,
   m.public_id AS authorId, profile.handle AS authorHandle,
   c.body, c.depth, c.created_at AS createdAt,
-  c.updated_at AS updatedAt, c.deleted_at AS deletedAt
-  FROM post_comments c
-  JOIN posts p ON p.id = c.post_id
+  c.updated_at AS updatedAt, c.deleted_at AS deletedAt,
+  ${hiddenSql("comment", "c")} AS hidden
+  FROM post_comments c  JOIN posts p ON p.id = c.post_id
   JOIN members m ON m.id = c.member_id
   JOIN member_profiles profile ON profile.member_id = m.id
   LEFT JOIN post_comments parent ON parent.id = c.parent_id`;
 
 function present(row: CommentRow): PublicComment {
   return {
-    id: row.id, parentId: row.parentId,
-    authorId: row.deletedAt ? null : row.authorId,
-    authorHandle: row.deletedAt ? null : row.authorHandle,
-    body: row.deletedAt ? "Contenu supprimé" : row.body,
-    depth: row.depth, createdAt: row.createdAt,
-    updatedAt: row.updatedAt, deleted: !!row.deletedAt,
+    id: row.id,
+    parentId: row.parentId,
+    authorId: row.deletedAt || row.hidden
+      ? null
+      : row.authorId,
+    authorHandle: row.deletedAt || row.hidden
+      ? null
+      : row.authorHandle,
+    body: row.hidden
+      ? "Contenu masqué après signalements"
+      : row.deletedAt
+        ? "Contenu supprimé"
+        : row.body,
+    depth: row.depth,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    deleted: !!row.deletedAt || !!row.hidden,
   };
 }
 
@@ -97,22 +112,32 @@ export async function createComment(
   await connection.beginTransaction();
   try {
     const [posts] = await connection.execute<PostRow[]>(
-      `SELECT id AS internalId, deleted_at AS deletedAt
+      `SELECT id AS internalId, deleted_at AS deletedAt,
+              ${hiddenSql("post", "posts")} AS hidden
        FROM posts WHERE public_id = ? FOR UPDATE`,
       [postId],
     );
     const post = posts[0];
-    if (!post || post.deletedAt) throw new TypeError("Publication indisponible.");
+    if (!post || post.deletedAt || post.hidden) {
+      throw new TypeError("Publication indisponible.");
+    }
+
     let parentInternalId: number | null = null;
     let depth = 0;
     if (input.parentId) {
       const [parents] = await connection.execute<ParentRow[]>(
-        `SELECT id AS internalId, post_id AS postId, depth
+        `SELECT id AS internalId, post_id AS postId, depth,
+                ${hiddenSql("comment", "post_comments")} AS hidden
          FROM post_comments WHERE public_id = ? FOR UPDATE`,
         [input.parentId],
       );
       const parent = parents[0];
-      if (!parent || parent.postId !== post.internalId || parent.depth >= 4) {
+      if (
+        !parent ||
+        parent.hidden ||
+        parent.postId !== post.internalId ||
+        parent.depth >= 4
+      ) {
         throw new TypeError("Réponse impossible à ce commentaire.");
       }
       parentInternalId = parent.internalId;

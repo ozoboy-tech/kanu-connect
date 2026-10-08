@@ -3,6 +3,7 @@ import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/prom
 
 import type { ProjectInput, ProjectStatus } from "@/modules/projects/domain/project-input";
 import { awardActivity } from "@/server/reputation/reputation-repository";
+import { hiddenSql } from "@/server/reports/report-rules";
 
 interface ProjectRow extends RowDataPacket {
   id: string;
@@ -18,6 +19,7 @@ interface ProjectRow extends RowDataPacket {
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
+  hidden: number;
 }
 
 interface LockedProject extends RowDataPacket {
@@ -47,7 +49,8 @@ const projection = `SELECT p.public_id AS id,
   p.title, p.summary, p.description, p.status, p.technologies,
   p.repository_url AS repositoryUrl, p.demo_url AS demoUrl,
   p.created_at AS createdAt, p.updated_at AS updatedAt,
-  p.deleted_at AS deletedAt
+  p.deleted_at AS deletedAt,
+  ${hiddenSql("project", "p")} AS hidden
   FROM member_projects p
   JOIN members m ON m.id = p.member_id
   JOIN member_profiles profile ON profile.member_id = m.id`;
@@ -76,12 +79,15 @@ export async function getProject(
   const [rows] = await connection.execute<ProjectRow[]>(
     `${projection} WHERE p.public_id = ? LIMIT 1`, [id],
   );
-  return rows[0] ? present(rows[0]) : null;
+  return rows[0] && !rows[0].hidden
+    ? present(rows[0])
+    : null;
 }
 
 export async function listProjects(connection: PoolConnection): Promise<PublicProject[]> {
   const [rows] = await connection.execute<ProjectRow[]>(
     `${projection} WHERE p.deleted_at IS NULL
+     AND NOT ${hiddenSql("project", "p")}
      ORDER BY p.created_at DESC, p.id DESC LIMIT 20`,
   );
   return rows.map(present);
@@ -92,6 +98,7 @@ export async function listMemberProjects(
 ): Promise<PublicProject[]> {
   const [rows] = await connection.execute<ProjectRow[]>(
     `${projection} WHERE profile.handle = ? AND p.deleted_at IS NULL
+     AND NOT ${hiddenSql("project", "p")}
      ORDER BY p.created_at DESC, p.id DESC LIMIT 20`, [handle],
   );
   return rows.map(present);

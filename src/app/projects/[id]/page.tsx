@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
-
 import { auth } from "@/auth";
 import { validPostId } from "@/modules/posts/domain/post-input";
 import { authPool } from "@/server/auth/db";
 import { getProject } from "@/server/projects/project-repository";
 import VoteButton from "@/app/components/vote-button";
+import ReportButton from "@/app/components/report-button";
 import ProjectActions from "./project-actions";
 
 const labels = { idea: "Idée", building: "En cours", live: "Disponible" };
@@ -40,6 +40,11 @@ export default async function ProjectPage({ params }: {
         viewerId={session?.user.id ?? null}
         authorId={project.authorId}
         canVote={!!session?.user.onboarded} />
+      <ReportButton kind="project" id={project.id}
+        viewerId={session?.user.id ?? null}
+        authorId={project.authorId}
+        canReport={!!session?.user.onboarded} />
+
 
 
     </>}=
