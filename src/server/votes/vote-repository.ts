@@ -1,7 +1,7 @@
 import type { PoolConnection, RowDataPacket } from "mysql2/promise";
-
 import { awardActivity } from "@/server/reputation/reputation-repository";
 import { recordUsefulActivity } from "@/server/streaks/streak-repository";
+import { refreshSolution } from "@/server/solutions/solution-repository";
 
 export const voteKinds = ["post", "comment", "project"] as const;
 export type VoteKind = typeof voteKinds[number];
@@ -23,6 +23,7 @@ const config = {
 
 interface TargetRow extends RowDataPacket {
   id: number;
+  postId: number | null;
   authorId: number;
   deletedAt: Date | null;
   parentDeletedAt: Date | null;
@@ -43,7 +44,9 @@ async function targetOf(
   const parentDeleted = kind === "comment"
     ? "p.deleted_at AS parentDeletedAt" : "NULL AS parentDeletedAt";
   const [rows] = await connection.execute<TargetRow[]>(
-    `SELECT t.id, t.member_id AS authorId, t.deleted_at AS deletedAt,
+    `SELECT t.id, ${kind === "comment" ? "t.post_id AS postId" : "NULL AS postId"},
+            t.member_id AS authorId,
+            t.deleted_at AS deletedAt,
             ${parentDeleted}
      FROM ${table} t ${parent} WHERE t.public_id = ? LIMIT 1
      ${lock ? "FOR UPDATE" : ""}`, [id],
@@ -124,7 +127,9 @@ export async function setVote(
         [target.id, voterId],
       );
     }
-
+    if (kind === "comment" && target.postId !== null) {
+      await refreshSolution(connection, target.postId);
+    }
     const state = await stateOf(connection, kind, target.id, viewerId);
     await connection.commit();
     return state;

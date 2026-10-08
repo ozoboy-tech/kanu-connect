@@ -7,6 +7,7 @@ export const ACTION_POINTS = {
   votePost: 1,
   voteComment: 1,
   voteProject: 1,
+  solution: 10,
 } as const;
 
 export type ReputationAction = keyof typeof ACTION_POINTS;

@@ -3,6 +3,7 @@ import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/prom
 import type { PostInput, Space } from "@/modules/posts/domain/post-input";
 import { awardActivity } from "@/server/reputation/reputation-repository";
 import { recordUsefulActivity } from "@/server/streaks/streak-repository";
+import { refreshSolution } from "@/server/solutions/solution-repository";
 
 interface PostRow extends RowDataPacket {
   internalId: number;
@@ -183,6 +184,7 @@ export async function updatePost(
         [post.internalId, keyword],
       );
     }
+    await refreshSolution(connection, post.internalId);
     await connection.commit();
     return "ok";
   } catch (error) { await connection.rollback(); throw error; }
@@ -207,7 +209,7 @@ export async function deletePost(
     if (deleted.affectedRows !== 1) {
       await connection.rollback(); return "forbidden";
     }
-    await connection.commit();
-    return "ok";
+    await refreshSolution(connection, post.internalId);
+    await connection.commit();    return "ok";
   } catch (error) { await connection.rollback(); throw error; }
 }

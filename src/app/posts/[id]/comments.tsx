@@ -14,27 +14,78 @@ interface CommentItem {
   deleted: boolean;
 }
 
-export default function Comments({ postId, viewerId, canWrite }: {
+interface SolutionState {
+  commentId: string | null;
+  resolved: boolean;
+  votes: number;
+}
+
+export default function Comments({
+  postId, viewerId, canWrite, isQuestion, canResolve,
+}: {
   postId: string;
   viewerId: string | null;
   canWrite: boolean;
+  isQuestion: boolean;
+  canResolve: boolean;
 }) {
+
   const [items, setItems] = useState<CommentItem[]>([]);
   const [message, setMessage] = useState("");
   const [body, setBody] = useState("");
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [editBody, setEditBody] = useState("");
+  const [solution, setSolution] = useState<SolutionState | null>(null);
+
+  const reloadSolution = useCallback(async () => {
+    if (!isQuestion) return;
+    const response = await fetch(
+      `/api/posts/${postId}/solution`,
+      { cache: "no-store" },
+    );
+    if (!response.ok) {
+      throw new Error("Solution indisponible.");
+    }
+    setSolution(await response.json() as SolutionState);
+  }, [postId, isQuestion]);
 
   const reload = useCallback(async () => {
+
     const response = await fetch(`/api/posts/${postId}/comments`, { cache: "no-store" });
     if (!response.ok) throw new Error("Chargement impossible.");
     setItems(await response.json());
   }, [postId]);
 
   useEffect(() => {
-    void reload().catch(() => setMessage("Commentaires indisponibles."));
-  }, [reload]);
+    void reload().catch(
+      () => setMessage("Commentaires indisponibles."),
+    );
+    void reloadSolution().catch(
+      () => setMessage("Solution indisponible."),
+    );
+  }, [reload, reloadSolution]);
+
+  async function toggleResolved() {
+    if (!solution) return;
+    try {
+      const response = await fetch(`/api/posts/${postId}/solution`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ resolved: !solution.resolved }),
+      });
+      if (!response.ok) {
+        setMessage(
+          (await response.json()).error ?? "Action impossible.",
+        );
+        return;
+      }
+      setSolution(await response.json() as SolutionState);
+      setMessage("");
+    } catch {
+      setMessage("Connexion impossible. Réessaie.");
+    }
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -82,6 +133,7 @@ export default function Comments({ postId, viewerId, canWrite }: {
       }
       setMessage("");
       await reload();
+      await reloadSolution();
     } catch { setMessage("Connexion impossible. Réessaie."); }
   }
 
@@ -103,7 +155,13 @@ export default function Comments({ postId, viewerId, canWrite }: {
         </>}</p>
         {!item.deleted && <VoteButton kind="comment" id={item.id}
           viewerId={viewerId} authorId={item.authorId}
-          canVote={canWrite} />}
+          canVote={canWrite}
+          onChanged={() => void reloadSolution().catch(
+            () => setMessage("Solution indisponible."),
+          )} />}
+        {!item.deleted && solution?.commentId === item.id &&
+          <strong> Solution de la communauté · {solution.votes} votes</strong>}
+
         {canWrite && item.depth < 4 &&
           <button type="button" onClick={() => setReplyTo(item.id)}>Répondre</button>}
         {mayEdit && <>
@@ -125,6 +183,15 @@ export default function Comments({ postId, viewerId, canWrite }: {
 
   return <section aria-label="Commentaires">
     <h2>Commentaires et réponses</h2>
+    {isQuestion && <p>
+      Question {solution?.resolved ? "résolue" : "ouverte"}.
+      {canResolve && solution && <button type="button"
+        onClick={() => void toggleResolved()}>
+        {solution.resolved
+          ? "Rouvrir la question"
+          : "Marquer comme résolue"}
+      </button>}
+    </p>}
     {items.length === 0 && <p>Pas encore de commentaire.</p>}
     <ul>{render(null)}</ul>
     {canWrite && <form onSubmit={submit}>

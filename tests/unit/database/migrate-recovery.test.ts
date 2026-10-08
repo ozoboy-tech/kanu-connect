@@ -191,8 +191,10 @@ describe("Reprise contrôlée de la migration members", () => {
   "0020_member_streak_days.sql",
   "0021_post_votes.sql",
   "0022_comment_votes.sql",
-  "0023_project_votes.sql",
+"0023_project_votes.sql",
+  "0024_post_solutions.sql",
+  "0025_post_solution_rewards.sql",
 ]);
-expect(applied).toHaveLength(23);
+expect(applied).toHaveLength(25);
 });
 });
