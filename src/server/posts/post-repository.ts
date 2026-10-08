@@ -4,6 +4,7 @@ import type { PostInput, Space } from "@/modules/posts/domain/post-input";
 import { awardActivity } from "@/server/reputation/reputation-repository";
 import { recordUsefulActivity } from "@/server/streaks/streak-repository";
 import { refreshSolution } from "@/server/solutions/solution-repository";
+import { hiddenSql } from "@/server/reports/report-rules";
 
 interface PostRow extends RowDataPacket {
   internalId: number;
@@ -19,7 +20,9 @@ interface PostRow extends RowDataPacket {
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
+  hidden: number;
 }
+
 
 interface LockedPost extends RowDataPacket {
   internalId: number;
@@ -48,8 +51,10 @@ const projection = `SELECT p.id AS internalId, p.public_id AS id,
   m.public_id AS authorId, profile.handle AS authorHandle,
   p.kind, p.space, p.title, p.body, p.code,
   p.code_language AS codeLanguage, p.created_at AS createdAt,
-  p.updated_at AS updatedAt, p.deleted_at AS deletedAt
-  FROM posts p JOIN members m ON m.id = p.member_id
+  p.updated_at AS updatedAt, p.deleted_at AS deletedAt,
+  ${hiddenSql("post", "p")} AS hidden
+  FROM posts p
+ JOIN members m ON m.id = p.member_id
   JOIN member_profiles profile ON profile.member_id = m.id`;
 
 async function loadPost(connection: PoolConnection, row: PostRow): Promise<PublicPost> {
@@ -80,7 +85,9 @@ export async function getPost(
   const [rows] = await connection.execute<PostRow[]>(
     `${projection} WHERE p.public_id = ? LIMIT 1`, [id],
   );
-  return rows[0] ? loadPost(connection, rows[0]) : null;
+  return rows[0] && !rows[0].hidden
+    ? loadPost(connection, rows[0])
+    : null;
 }
 
 export async function listPosts(
@@ -90,8 +97,8 @@ export async function listPosts(
   const followingOnly = viewerId !== null;
   const [rows] = await connection.execute<PostRow[]>(
     `${projection} WHERE p.deleted_at IS NULL
-     AND (? IS NULL OR p.space = ?)
-     ${followingOnly ? `AND (m.public_id = ? OR EXISTS (
+     AND NOT ${hiddenSql("post", "p")}
+     AND (? IS NULL OR p.space = ?)     ${followingOnly ? `AND (m.public_id = ? OR EXISTS (
        SELECT 1 FROM member_follows f
        JOIN members viewer ON viewer.id = f.follower_id
        WHERE viewer.public_id = ? AND f.followed_id = p.member_id

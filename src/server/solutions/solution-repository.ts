@@ -1,15 +1,16 @@
 import type { PoolConnection, RowDataPacket } from "mysql2/promise";
-
 import { calculateAwardedPoints } from
   "@/modules/reputation/domain/calculate-awarded-points";
 import { ACTION_POINTS } from
   "@/modules/reputation/domain/reputation-rules";
+import { hiddenSql } from "@/server/reports/report-rules";
 
 interface QuestionRow extends RowDataPacket {
   id: number;
   authorId?: string;
   kind: string;
   deletedAt: Date | null;
+  hidden?: number;
 }
 interface WinnerRow extends RowDataPacket {
   commentId: number;
@@ -46,10 +47,13 @@ export async function getSolutionState(
      FROM posts p
      LEFT JOIN post_solutions s ON s.post_id = p.id
      LEFT JOIN post_comments c
-       ON c.id = s.comment_id AND c.deleted_at IS NULL
+       ON c.id = s.comment_id
+       AND c.deleted_at IS NULL
+       AND NOT ${hiddenSql("comment", "c")}
      WHERE p.public_id = ?
        AND p.kind = 'question'
        AND p.deleted_at IS NULL
+       AND NOT ${hiddenSql("post", "p")}
      LIMIT 1`,
     [postId],
   );
@@ -89,10 +93,13 @@ export async function refreshSolution(
               c.member_id AS memberId,
               COUNT(*) AS votes
        FROM post_comments c
+       JOIN posts p ON p.id = c.post_id
        JOIN comment_votes v
          ON v.comment_id = c.id AND v.active = 1
        WHERE c.post_id = ?
          AND c.deleted_at IS NULL
+         AND NOT ${hiddenSql("comment", "c")}
+         AND NOT ${hiddenSql("post", "p")}
        GROUP BY c.id, c.member_id, c.created_at
        HAVING COUNT(*) >= 3
        ORDER BY votes DESC, c.created_at ASC, c.id ASC
@@ -197,6 +204,7 @@ export async function setQuestionResolved(
     const [rows] = await connection.execute<QuestionRow[]>(
       `SELECT p.id, p.kind,
               p.deleted_at AS deletedAt,
+              ${hiddenSql("post", "p")} AS hidden,
               m.public_id AS authorId
        FROM posts p
        JOIN members m ON m.id = p.member_id
@@ -207,7 +215,8 @@ export async function setQuestionResolved(
     if (
       !question ||
       question.kind !== "question" ||
-      question.deletedAt
+      question.deletedAt ||
+      question.hidden
     ) {
       await connection.rollback();
       return "not_found";

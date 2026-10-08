@@ -2,6 +2,7 @@ import type { PoolConnection, RowDataPacket } from "mysql2/promise";
 import { awardActivity } from "@/server/reputation/reputation-repository";
 import { recordUsefulActivity } from "@/server/streaks/streak-repository";
 import { refreshSolution } from "@/server/solutions/solution-repository";
+import { hiddenSql } from "@/server/reports/report-rules";
 
 export const voteKinds = ["post", "comment", "project"] as const;
 export type VoteKind = typeof voteKinds[number];
@@ -27,6 +28,8 @@ interface TargetRow extends RowDataPacket {
   authorId: number;
   deletedAt: Date | null;
   parentDeletedAt: Date | null;
+  hidden: number;
+  parentHidden: number;
 }
 interface MemberRow extends RowDataPacket { id: number }
 interface VoteRow extends RowDataPacket { count: number; voted: number }
@@ -43,16 +46,27 @@ async function targetOf(
     ? "JOIN posts p ON p.id = t.post_id" : "";
   const parentDeleted = kind === "comment"
     ? "p.deleted_at AS parentDeletedAt" : "NULL AS parentDeletedAt";
+  const parentHidden = kind === "comment"
+    ? hiddenSql("post", "p")
+    : "0";
   const [rows] = await connection.execute<TargetRow[]>(
     `SELECT t.id, ${kind === "comment" ? "t.post_id AS postId" : "NULL AS postId"},
             t.member_id AS authorId,
             t.deleted_at AS deletedAt,
-            ${parentDeleted}
+            ${parentDeleted},
+            ${hiddenSql(kind, "t")} AS hidden,
+            ${parentHidden} AS parentHidden
      FROM ${table} t ${parent} WHERE t.public_id = ? LIMIT 1
      ${lock ? "FOR UPDATE" : ""}`, [id],
   );
   const target = rows[0];
-  return target && !target.deletedAt && !target.parentDeletedAt ? target : null;
+  return target &&
+    !target.deletedAt &&
+    !target.parentDeletedAt &&
+    !target.hidden &&
+    !target.parentHidden
+    ? target
+    : null;
 }
 
 async function stateOf(

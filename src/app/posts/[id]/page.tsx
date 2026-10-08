@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
-
 import { auth } from "@/auth";
 import { validPostId } from "@/modules/posts/domain/post-input";
 import { authPool } from "@/server/auth/db";
 import { getPost } from "@/server/posts/post-repository";
 import VoteButton from "@/app/components/vote-button";
+import ReportButton from "@/app/components/report-button";
 import PostActions from "./post-actions";
 import Comments from "./comments";
 
@@ -36,6 +36,11 @@ export default async function PostPage({ params }: {
         viewerId={session?.user.id ?? null}
         authorId={post.authorId}
         canVote={!!session?.user.onboarded} />
+      <ReportButton kind="post" id={post.id}
+        viewerId={session?.user.id ?? null}
+        authorId={post.authorId}
+        canReport={!!session?.user.onboarded} />
+
     </>}
     {mayEdit && <PostActions id={post.id} />}
     <Comments postId={post.id} viewerId={session?.user.id ?? null}
