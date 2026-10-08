@@ -5,7 +5,7 @@ import { ACTION_POINTS, badgesForPoints } from
 it("fixe le barème des activités", () => {
 expect(ACTION_POINTS).toEqual({
     post: 5, comment: 2, project: 8, follow: 1, streak: 5,
-    votePost: 1, voteComment: 1, voteProject: 1,
+    votePost: 1, voteComment: 1, voteProject: 1, solution: 10,
   });
 });
 

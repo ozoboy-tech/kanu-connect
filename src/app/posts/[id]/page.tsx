@@ -39,6 +39,11 @@ export default async function PostPage({ params }: {
     </>}
     {mayEdit && <PostActions id={post.id} />}
     <Comments postId={post.id} viewerId={session?.user.id ?? null}
-      canWrite={!!session?.user.onboarded && !post.deleted} />
+      canWrite={!!session?.user.onboarded && !post.deleted}
+      isQuestion={post.kind === "question" && !post.deleted}
+      canResolve={!!session?.user.onboarded &&
+        session.user.id === post.authorId &&
+        post.kind === "question" && !post.deleted} />
+
   </main>;
 }

@@ -3,6 +3,7 @@ import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/prom
 import type { CommentInput } from "@/modules/comments/domain/comment-input";
 import { awardActivity } from "@/server/reputation/reputation-repository";
 import { recordUsefulActivity } from "@/server/streaks/streak-repository";
+import { refreshSolution } from "@/server/solutions/solution-repository";
 
 interface CommentRow extends RowDataPacket {
   id: string;
@@ -206,7 +207,9 @@ export async function deleteComment(
     if (result.affectedRows !== 1) {
       await connection.rollback(); return "forbidden";
     }
+    await refreshSolution(connection, row.postId);
     await connection.commit();
     return "ok";
+
   } catch (error) { await connection.rollback(); throw error; }
 }

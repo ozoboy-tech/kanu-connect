@@ -62,10 +62,16 @@ export async function getReputation(
   connection: PoolConnection, handle: string,
 ): Promise<ReputationSummary | null> {
   const [rows] = await connection.execute<ScoreRow[]>(
-    `SELECT COALESCE(SUM(e.points), 0) AS points
+    `SELECT
+       (SELECT COALESCE(SUM(e.points), 0)
+        FROM member_reputation_events e
+        WHERE e.member_id = p.member_id) +
+       (SELECT COALESCE(SUM(r.points), 0)
+        FROM post_solution_rewards r
+        WHERE r.member_id = p.member_id) AS points
      FROM member_profiles p
-     LEFT JOIN member_reputation_events e ON e.member_id = p.member_id
-     WHERE p.handle = ? GROUP BY p.member_id`, [handle],
+     WHERE p.handle = ?`,
+    [handle],
   );
   if (!rows.length) return null;
   const points = Number(rows[0].points);
@@ -77,10 +83,17 @@ export async function listLeaderboard(
 ): Promise<{ handle: string; points: number; votes: number }[]> {
   const filter = period === "week"
     ? "AND e.awarded_at >= UTC_TIMESTAMP(3) - INTERVAL 7 DAY" : "";
+  const rewardFilter = period === "week"
+    ? "AND r.awarded_at >= UTC_TIMESTAMP(3) - INTERVAL 7 DAY" : "";
   const voteFilter = period === "week"
     ? "AND v.updated_at >= UTC_TIMESTAMP(3) - INTERVAL 7 DAY" : "";
   const [rows] = await connection.execute<RankRow[]>(
-    `SELECT p.handle, COALESCE(SUM(e.points), 0) AS points,
+`SELECT p.handle,
+       COALESCE(SUM(e.points), 0) +
+       (SELECT COALESCE(SUM(r.points), 0)
+        FROM post_solution_rewards r
+        WHERE r.member_id = p.member_id ${rewardFilter}) AS points,
+
        (SELECT COUNT(*) FROM post_votes v
         JOIN posts post ON post.id = v.post_id
         WHERE post.member_id = p.member_id AND post.deleted_at IS NULL

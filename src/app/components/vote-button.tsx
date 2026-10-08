@@ -3,14 +3,13 @@ import { useEffect, useState } from "react";
 import type { VoteKind, VoteState } from
   "@/server/votes/vote-repository";
 
-export default function VoteButton({
-  kind, id, viewerId, authorId, canVote,
-}: {
+export default function VoteButton({ kind, id, viewerId, authorId, canVote, onChanged }: {
   kind: VoteKind;
   id: string;
   viewerId: string | null;
   authorId: string | null;
   canVote: boolean;
+  onChanged?: () => void;
 }) {
   const [state, setState] = useState<VoteState | null>(null);
   const [busy, setBusy] = useState(false);
@@ -47,6 +46,8 @@ export default function VoteButton({
         return;
       }
       setState(await response.json() as VoteState);
+      onChanged?.();
+
     } catch {
       setError("Connexion impossible.");
     } finally {
