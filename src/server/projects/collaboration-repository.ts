@@ -4,6 +4,9 @@ import {
   type CollaborationRequest, type CollaborationState,
 } from "@/modules/projects/domain/collaboration-input";
 import { hiddenSql } from "@/server/reports/report-rules";
+import { notifyApplicant, notifyProjectOwner } from
+  "@/server/notifications/notification-repository";
+
 
 type Result = "ok" | "not_found" | "forbidden" | "duplicate" | "conflict";
 type Access = { projectId: number; memberId: number; isOwner: boolean };
@@ -72,6 +75,7 @@ export async function requestCollaboration(
        VALUES (?, ?, ?, 'pending', UTC_TIMESTAMP(3))`,
       [target.projectId, target.memberId, message],
     );
+    await notifyProjectOwner(connection, target.projectId, target.memberId);
     return "ok";
   });
 }
@@ -118,9 +122,10 @@ export async function decideCollaboration(
   return mutate(connection, projectId, ownerId, async (target) => {
     if (!target.isOwner) return "forbidden";
     const [requests] = await connection.execute<(
-      RowDataPacket & { id: number; status: string }
+      RowDataPacket & { id: number; status: string; applicantId: number }
     )[]>(
-      `SELECT r.id, r.status FROM project_collaboration_requests r
+      `SELECT r.id, r.status, r.member_id AS applicantId
+       FROM project_collaboration_requests r
        JOIN members m ON m.id = r.member_id
        WHERE r.project_id = ? AND m.public_id = ?`,
       [target.projectId, applicantId],
@@ -131,6 +136,9 @@ export async function decideCollaboration(
       `UPDATE project_collaboration_requests
        SET status = ?, decided_at = UTC_TIMESTAMP(3) WHERE id = ?`,
       [decision, requests[0].id],
+    );
+    await notifyApplicant(
+      connection, target.projectId, target.memberId, requests[0].applicantId, decision,
     );
     return "ok";
   });

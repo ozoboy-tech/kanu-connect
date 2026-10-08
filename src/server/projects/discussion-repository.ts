@@ -4,6 +4,9 @@ import {
   type DiscussionMessage, type DiscussionPage,
 } from "@/modules/projects/domain/discussion-input";
 import { hiddenSql } from "@/server/reports/report-rules";
+import { notifyDiscussionParticipants } from
+  "@/server/notifications/notification-repository";
+
 
 type Access = RowDataPacket & { projectId: number; memberId: number };
 type MessageRow = RowDataPacket & Omit<DiscussionMessage, "createdAt"> & {
@@ -78,6 +81,7 @@ export async function sendDiscussionMessage(
        VALUES (?, ?, ?, UTC_TIMESTAMP(3))`,
       [target.projectId, target.memberId, body],
     );
+    await notifyDiscussionParticipants(connection, target.projectId, target.memberId);
     await connection.commit();
     return "ok";
   } catch (error) {

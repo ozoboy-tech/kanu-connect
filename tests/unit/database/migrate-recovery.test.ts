@@ -198,8 +198,10 @@ describe("Reprise contrôlée de la migration members", () => {
   "0027_content_moderation_decisions.sql",
   "0028_project_collaboration_requests.sql",
   "0029_project_discussion_messages.sql",
+  "0030_project_notifications.sql",
+
 
 ]);
-expect(applied).toHaveLength(29);
+expect(applied).toHaveLength(30);
 });
 });
