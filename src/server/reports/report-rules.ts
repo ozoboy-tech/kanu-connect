@@ -16,6 +16,11 @@ const keys = {
 
 // kind et alias doivent provenir du code, jamais d'une saisie utilisateur.
 export function hiddenSql(kind: ReportKind, alias: string): string {
-  return `(SELECT COUNT(*) FROM content_reports reports
-    WHERE reports.${keys[kind]} = ${alias}.id) >= 3`;
+  return `COALESCE(
+    (SELECT decisions.decision = 'hide'
+     FROM content_moderation_decisions decisions
+     WHERE decisions.${keys[kind]} = ${alias}.id),
+    (SELECT COUNT(*) FROM content_reports reports
+     WHERE reports.${keys[kind]} = ${alias}.id) >= 3
+  )`;
 }

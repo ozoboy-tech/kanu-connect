@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "setup:windows": "npm ci --omit=optional --ignore-scripts && npm install --no-save --omit=optional --ignore-scripts @next/swc-win32-x64-msvc@16.3.8 @esbuild/win32-x64@0.28.2 @rollup/rollup-win32-x64-msvc@4.64.0",
-    "dev": "next dev --hostname 127.0.0.1",
+    "dev": "next dev --hostname localhost --port 3000",
     "build": "next build",
     "start": "next start",
     "typecheck": "next typegen && tsc --noEmit",

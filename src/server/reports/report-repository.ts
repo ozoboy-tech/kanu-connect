@@ -31,6 +31,7 @@ interface Reporter extends RowDataPacket {
 interface Count extends RowDataPacket {
   count: number;
   reported: number;
+  decision: "hide" | "restore" | "pending";
 }
 
 export interface ReportState {
@@ -88,16 +89,26 @@ async function stateOf(
             COALESCE(
               MAX(CASE WHEN m.public_id = ? THEN 1 ELSE 0 END),
               0
-            ) AS reported
+            ) AS reported,
+            COALESCE(
+              (SELECT d.decision
+               FROM content_moderation_decisions d
+               WHERE d.${config[kind].key} = ?),
+              'pending'
+            ) AS decision
      FROM content_reports r
      JOIN members m ON m.id = r.reporter_id
      WHERE r.${config[kind].key} = ?`,
-    [viewerId, targetId],
+    [viewerId, targetId, targetId],
   );
 
   return {
     reported: rows[0].reported === 1,
-    hidden: rows[0].count >= 3,
+    hidden: rows[0].decision === "hide" ||
+      (
+        rows[0].decision === "pending" &&
+        rows[0].count >= 3
+      ),
   };
 }
 

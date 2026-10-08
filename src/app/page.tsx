@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { isModerator } from "@/server/moderation/moderator";
 
 export default async function Home() {
   const session = await auth();
@@ -9,6 +10,9 @@ export default async function Home() {
       <div>KANU CONNECT</div>
       <p><a href="/feed">Publications</a> · <a href="/projects">Projets</a> · <a href="/leaderboard">Classement</a></p>
       {session && <p><a href="/profile">Mon profil</a></p>}
+      {isModerator(session?.user.id) &&
+        <p><a href="/moderation">Modération</a></p>}
+
       {session && <a href="/api/auth/signout">Se déconnecter</a>}
       {!session && <nav>
         <a href="/register">Créer un compte</a>{" · "}
