@@ -14,7 +14,7 @@ $database = if ($Target -eq 'test') { 'kanuconnecttest' } else { 'kanuconnectdev
 $password = [Uri]::EscapeDataString($credential.GetNetworkCredential().Password)
 $env:KANU_DATABASE_NAME = $database
 $env:KANU_DATABASE_URL = ('mysql://kanu_app_{0}:{1}@127.0.0.1:3306/{2}' -f $Target, $password, $database)
-$env:AUTH_URL = 'http://127.0.0.1:3000'
+$env:AUTH_URL = 'http://localhost:3000'
 
 $secretFile = Join-Path $directory 'auth-secret.xml'
 if (-not (Test-Path $secretFile)) {
@@ -26,5 +26,17 @@ if (-not (Test-Path $secretFile)) {
 }
 $secret = Import-Clixml $secretFile
 $env:AUTH_SECRET = [pscredential]::new('auth', $secret).GetNetworkCredential().Password
+
+$moderatorFile = Join-Path $directory 'moderator-id.txt'
+$env:KANU_MODERATOR_IDS = if (Test-Path $moderatorFile) {
+    (Get-Content -LiteralPath $moderatorFile -Raw).Trim()
+} else {
+    ''
+}
+if ($Target -eq 'dev') {
+    $env:KANU_DEV_MAIL_TO_CONSOLE = '1'
+} else {
+    Remove-Item Env:KANU_DEV_MAIL_TO_CONSOLE -ErrorAction SilentlyContinue
+}
 
 npm run dev
