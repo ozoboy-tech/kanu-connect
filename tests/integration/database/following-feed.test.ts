@@ -44,6 +44,11 @@ it("filtre les publications par abonnements, espace et suppression", async () =>
       const post = await createPost(connection, authorId, {
         kind: opportunity ? "opportunity" : "question",
         space: opportunity ? "opportunities" : "questions",
+        opportunity: opportunity ? {
+          category: "backend",
+          deadline: new Date(Date.now() + 86_400_000).toISOString(),
+          applyUrl: "https://example.test/apply",
+        } : null,
         title, body: "Contenu de test", code: null, codeLanguage: null,
         keywords: ["test"],
       });

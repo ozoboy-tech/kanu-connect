@@ -8,6 +8,8 @@ import {
   type CommunityNotificationKind,
 } from "@/modules/notifications/domain/notification-input";
 import { hiddenSql } from "@/server/reports/report-rules";
+import { activeOpportunitySql } from "@/server/opportunities/opportunity-repository";
+
 
 interface NotificationRow extends RowDataPacket {
   id: string;
@@ -32,6 +34,7 @@ const visible = `(
     AND NOT ${hiddenSql("project", "project")})
   OR
   (n.post_id IS NOT NULL AND p.deleted_at IS NULL
+    AND ${activeOpportunitySql("p")}
     AND NOT ${hiddenSql("post", "p")}
     AND (n.comment_id IS NULL OR
       (c.deleted_at IS NULL AND NOT ${hiddenSql("comment", "c")})))

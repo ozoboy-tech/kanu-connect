@@ -34,6 +34,7 @@ export default async function FeedPage({ searchParams }: {
     <h1>{following ? "Mon fil" : "Publications récentes"}</h1>
     <p><a href="/posts/new">Créer une publication</a></p>
     <p><a href="/projects">Découvrir les projets</a></p>
+    <p><a href="/opportunities">Découvrir les opportunités et suivre des catégories</a></p>
     <nav aria-label="Choisir un fil">
       <a href={space ? `/feed?space=${space}` : "/feed"}
         aria-current={!following ? "page" : undefined}>Fil public</a>{" · "}

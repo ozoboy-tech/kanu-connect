@@ -1,4 +1,10 @@
+import {
+  opportunityForPost,
+  type OpportunityInput,
+} from "@/modules/opportunities/domain/opportunity-input";
+
 export const spaces = ["questions", "sharing", "projects", "opportunities"] as const;
+
 export const kinds = [
   "question", "tip", "project", "opportunity", "tutorial", "announcement",
 ] as const;
@@ -17,6 +23,7 @@ export interface PostInput {
   code: string | null;
   codeLanguage: string | null;
   keywords: string[];
+  opportunity?: OpportunityInput | null;
 }
 
 export function parsePostInput(value: unknown): PostInput {
@@ -25,7 +32,7 @@ export function parsePostInput(value: unknown): PostInput {
   }
   const item = value as Record<string, unknown>;
   const allowed = new Set([
-    "kind", "space", "title", "body", "code", "codeLanguage", "keywords",
+    "kind", "space", "title", "body", "code", "codeLanguage", "keywords", "opportunity",
   ]);
   if (Object.keys(item).some((key) => !allowed.has(key)) ||
       !kinds.includes(item.kind as Kind) ||
@@ -67,6 +74,12 @@ export function parsePostInput(value: unknown): PostInput {
   return {
     kind: item.kind as Kind, space: item.space as Space,
     title, body, code, codeLanguage, keywords,
+    opportunity: opportunityForPost({
+      kind: item.kind as Kind,
+      space: item.space as Space,
+      opportunity: item.opportunity,
+    }),
+
   };
 }
 

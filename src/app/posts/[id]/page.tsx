@@ -7,6 +7,9 @@ import VoteButton from "@/app/components/vote-button";
 import ReportButton from "@/app/components/report-button";
 import PostActions from "./post-actions";
 import Comments from "./comments";
+import { opportunityLabels } from "@/modules/opportunities/domain/opportunity-input";
+export const dynamic = "force-dynamic";
+
 
 
 export default async function PostPage({ params }: {
@@ -28,6 +31,31 @@ export default async function PostPage({ params }: {
     {!post.deleted && <>
       <p>Par <a href={`/u/${post.authorHandle}`}>@{post.authorHandle}</a></p>
       <p>Espace : {post.space} · Type : {post.kind}</p>
+
+      {post.kind === "opportunity" && <section>
+        <h2>Opportunité</h2>
+
+        {post.opportunity ? <>
+          <p>{opportunityLabels[post.opportunity.category]}</p>
+
+          <p>
+            Date limite :{" "}
+            {post.opportunity.deadline.slice(0, 16).replace("T", " ")} UTC
+          </p>
+
+          {post.opportunity.archived
+            ? <p>Opportunité archivée : la date limite est dépassée.</p>
+            : <p>
+                <a href={post.opportunity.applyUrl}
+                  target="_blank" rel="noopener noreferrer">
+                  Postuler sur le site externe
+                </a>
+              </p>}
+        </> : <p>
+          Opportunité archivée : informations de candidature manquantes.
+        </p>}
+      </section>}
+
       <p style={{ whiteSpace: "pre-wrap" }}>{post.body}</p>
       {post.code && <section><h2>Code ({post.codeLanguage})</h2>
         <pre><code>{post.code}</code></pre></section>}

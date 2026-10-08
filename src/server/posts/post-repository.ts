@@ -6,6 +6,18 @@ import { recordUsefulActivity } from "@/server/streaks/streak-repository";
 import { refreshSolution } from "@/server/solutions/solution-repository";
 import { hiddenSql } from "@/server/reports/report-rules";
 import { notifyPublication } from "@/server/notifications/community-notifications";
+import {
+  opportunityForPost,
+  type OpportunityCategory,
+  type OpportunityDetails,
+} from "@/modules/opportunities/domain/opportunity-input";
+import {
+  activeOpportunitySql,
+  getOpportunity,
+  saveOpportunity,
+  notifyOpportunity,
+} from "@/server/opportunities/opportunity-repository";
+
 
 interface PostRow extends RowDataPacket {
   internalId: number;
@@ -46,6 +58,7 @@ export interface PublicPost {
   createdAt: Date;
   updatedAt: Date;
   deleted: boolean;
+  opportunity: OpportunityDetails | null;
 }
 
 const projection = `SELECT p.id AS internalId, p.public_id AS id,
@@ -64,7 +77,8 @@ async function loadPost(connection: PoolConnection, row: PostRow): Promise<Publi
       id: row.id, authorId: null, authorHandle: null,
       kind: row.kind, space: row.space, title: "Contenu supprimé",
       body: null, code: null, codeLanguage: null, keywords: [],
-      createdAt: row.createdAt, updatedAt: row.updatedAt, deleted: true,
+      createdAt: row.createdAt, updatedAt: row.updatedAt,
+      deleted: true, opportunity: null,
     };
   }
   const [tags] = await connection.execute<(RowDataPacket & { keyword: string })[]>(
@@ -77,6 +91,10 @@ async function loadPost(connection: PoolConnection, row: PostRow): Promise<Publi
     code: row.code, codeLanguage: row.codeLanguage,
     keywords: tags.map((tag) => tag.keyword),
     createdAt: row.createdAt, updatedAt: row.updatedAt, deleted: false,
+    opportunity: row.kind === "opportunity"
+      ? await getOpportunity(connection, row.internalId)
+      : null,
+
   };
 }
 
@@ -92,29 +110,62 @@ export async function getPost(
 }
 
 export async function listPosts(
-  connection: PoolConnection, space: Space | null,
+  connection: PoolConnection,
+  space: Space | null,
   viewerId: string | null = null,
+  filter: {
+    category?: OpportunityCategory | null;
+    subscribedBy?: string | null;
+  } = {},
 ): Promise<PublicPost[]> {
   const followingOnly = viewerId !== null;
+
   const [rows] = await connection.execute<PostRow[]>(
     `${projection} WHERE p.deleted_at IS NULL
-     AND NOT ${hiddenSql("post", "p")}
-     AND (? IS NULL OR p.space = ?)     ${followingOnly ? `AND (m.public_id = ? OR EXISTS (
+     AND NOT ${hiddenSql("post", "p")} AND ${activeOpportunitySql("p")}
+     AND (? IS NULL OR EXISTS (
+       SELECT 1 FROM post_opportunities opportunity
+       WHERE opportunity.post_id = p.id AND opportunity.category = ?
+     ))
+     AND (? IS NULL OR EXISTS (
+       SELECT 1 FROM post_opportunities opportunity
+       JOIN member_opportunity_categories subscription
+         ON subscription.category = opportunity.category
+       JOIN members subscriber ON subscriber.id = subscription.member_id
+       WHERE opportunity.post_id = p.id AND subscriber.public_id = ?
+     ))
+     AND (? IS NULL OR p.space = ?)
+     ${followingOnly ? `AND (m.public_id = ? OR EXISTS (
        SELECT 1 FROM member_follows f
        JOIN members viewer ON viewer.id = f.follower_id
        WHERE viewer.public_id = ? AND f.followed_id = p.member_id
      ))` : ""}
      ORDER BY p.created_at DESC, p.id DESC LIMIT 20`,
-    followingOnly ? [space, space, viewerId, viewerId] : [space, space],
+    [
+      filter.category ?? null,
+      filter.category ?? null,
+      filter.subscribedBy ?? null,
+      filter.subscribedBy ?? null,
+      space,
+      space,
+      ...(followingOnly ? [viewerId, viewerId] : []),
+    ],
   );
+
   const output: PublicPost[] = [];
-  for (const row of rows) output.push(await loadPost(connection, row));
+
+  for (const row of rows) {
+    output.push(await loadPost(connection, row));
+  }
+
   return output;
 }
+
 
 export async function createPost(
   connection: PoolConnection, authorId: string, input: PostInput,
 ): Promise<PublicPost> {
+  const opportunity = opportunityForPost(input);
   const id = randomUUID();
   await connection.beginTransaction();
   try {
@@ -131,6 +182,7 @@ export async function createPost(
         input.code, input.codeLanguage, authorId],
     );
     if (result.affectedRows !== 1) throw new Error("Compte incomplet.");
+    await saveOpportunity(connection, result.insertId, opportunity);
     for (const keyword of input.keywords) {
       await connection.execute(
         "INSERT INTO post_keywords (post_id, keyword) VALUES (?, ?)",
@@ -142,12 +194,16 @@ export async function createPost(
     );
     await awardActivity(connection, authors[0].id, "post", result.insertId);
     await recordUsefulActivity(connection, authors[0].id);
-    await notifyPublication(
-      connection,
-      result.insertId,
-      authors[0].id,
-      `${input.title}\n${input.body}`,
-    );
+    if (opportunity) {
+      await notifyOpportunity(connection, result.insertId);
+    } else {
+      await notifyPublication(
+        connection,
+        result.insertId,
+        authors[0].id,
+        `${input.title}\n${input.body}`,
+      );
+    }
     await connection.commit();
   } catch (error) { await connection.rollback(); throw error; }
   const created = await getPost(connection, id);
@@ -173,6 +229,7 @@ export async function updatePost(
   connection: PoolConnection, id: string, authorId: string,
   input: PostInput,
 ): Promise<MutationResult> {
+  const opportunity = opportunityForPost(input);
   await connection.beginTransaction();
   try {
     const post = await lockPost(connection, id);
@@ -198,6 +255,7 @@ export async function updatePost(
         [post.internalId, keyword],
       );
     }
+    await saveOpportunity(connection, post.internalId, opportunity);
     await refreshSolution(connection, post.internalId);
     await connection.commit();
     return "ok";

@@ -201,10 +201,13 @@ describe("Reprise contrôlée de la migration members", () => {
   "0029_project_discussion_messages.sql",
   "0030_project_notifications.sql",
   "0031_community_notifications.sql",
+  "0032_post_opportunities.sql",
+  "0033_member_opportunity_categories.sql",
+
 
 
 
 ]);
-expect(applied).toHaveLength(31);
+expect(applied).toHaveLength(33);
 });
 });
