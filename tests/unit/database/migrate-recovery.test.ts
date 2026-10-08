@@ -196,8 +196,8 @@ describe("Reprise contrôlée de la migration members", () => {
   "0025_post_solution_rewards.sql",
   "0026_content_reports.sql",
   "0027_content_moderation_decisions.sql",
+  "0028_project_collaboration_requests.sql",
 ]);
-expect(applied).toHaveLength(27);
-
+expect(applied).toHaveLength(28);
 });
 });
