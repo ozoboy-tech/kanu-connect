@@ -33,7 +33,8 @@ export async function notifyPublication(
      JOIN member_profiles profile ON profile.member_id = recipients.member_id
      JOIN member_private_identities identity_record
        ON identity_record.member_id = profile.member_id
-     WHERE p.id = ? AND p.member_id = ? AND profile.member_id <> p.member_id
+     WHERE p.id = ? AND p.kind <> 'opportunity'
+       AND p.member_id = ? AND profile.member_id <> p.member_id
      ON DUPLICATE KEY UPDATE id = member_notifications.id`,
     [...handles, authorId, ...handles, postId, authorId],
   );
