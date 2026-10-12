@@ -114,6 +114,28 @@ export async function listCollaborations(
   };
 }
 
+// Le verrou du projet sérialise le retrait et la décision du créateur.
+export async function withdrawCollaboration(
+  connection: PoolConnection, projectId: string, memberId: string,
+): Promise<Result> {
+  return mutate(connection, projectId, memberId, async (target) => {
+    if (target.isOwner) return "forbidden";
+    const [requests] = await connection.execute<(RowDataPacket & { id: number; status: string })[]>(
+      `SELECT id, status FROM project_collaboration_requests
+       WHERE project_id = ? AND member_id = ?`, [target.projectId, target.memberId],
+    );
+    const request = requests[0];
+    if (!request) return "not_found";
+    if (request.status === "withdrawn") return "ok";
+    if (request.status !== "pending") return "conflict";
+    await connection.execute(
+      `UPDATE project_collaboration_requests
+       SET status = 'withdrawn', decided_at = UTC_TIMESTAMP(3) WHERE id = ?`, [request.id],
+    );
+    return "ok";
+  });
+}
+
 export async function decideCollaboration(
   connection: PoolConnection, projectId: string, ownerId: string,
   applicantId: string, input: unknown,

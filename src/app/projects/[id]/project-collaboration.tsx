@@ -6,7 +6,7 @@ import type {
 } from "@/modules/projects/domain/collaboration-input";
 
 const labels = {
-  pending: "En attente", accepted: "Acceptée", rejected: "Refusée",
+  pending: "En attente", accepted: "Acceptée", rejected: "Refusée", withdrawn: "Retirée",
 };
 
 export default function ProjectCollaboration({ projectId, viewerId, onboarded }: {

@@ -33,7 +33,7 @@ function prepareConnection(tableExists: boolean, applied: {name: string;checksum
       }
       if (statement.includes("CREATE TABLE IF NOT EXISTS _kanu_migrations") ||
     statement.includes("CREATE TABLE `") ||
-    statement.includes("ALTER TABLE `project_notifications`")) return [[]];
+    statement.startsWith("ALTER TABLE `")) return [[]];
       throw new Error(`Requête inattendue : ${statement}`);
     }),
     execute: vi.fn(async (statement: string) => {
@@ -203,11 +203,14 @@ describe("Reprise contrôlée de la migration members", () => {
   "0031_community_notifications.sql",
   "0032_post_opportunities.sql",
   "0033_member_opportunity_categories.sql",
+  "0034_project_details.sql",
+  "0035_collaboration_withdrawal.sql",
+  "0036_content_attachments.sql",
 
 
 
 
 ]);
-expect(applied).toHaveLength(33);
+expect(applied).toHaveLength(36);
 });
 });

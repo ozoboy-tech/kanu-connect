@@ -56,6 +56,14 @@ it("présente un projet, réserve sa gestion à l'auteur et masque sa suppressio
       .toContain(project.id);
     expect(await updateProject(connection, project.id, "autre", input)).toBe("forbidden");
     expect(await updateProject(connection, project.id, authorId, {
+      ...input, status: "paused", roles: [{ label: "Front-end", filled: false }, { label: "Data", filled: true }],
+    })).toBe("ok");
+    expect(await getProject(connection, project.id)).toMatchObject({
+      status: "paused", roles: [{ label: "Front-end", filled: false }, { label: "Data", filled: true }],
+    });
+    await expect(updateProject(connection, project.id, authorId, { ...input, status: "live" })).rejects.toThrow();
+    expect((await getProject(connection, project.id))?.status).toBe("paused");
+    expect(await updateProject(connection, project.id, authorId, {
       ...input, status: "live", demoUrl: "https://example.org/demo",
     })).toBe("ok");
     expect(await getProject(connection, project.id)).toMatchObject({
@@ -64,7 +72,7 @@ it("présente un projet, réserve sa gestion à l'auteur et masque sa suppressio
     expect(await deleteProject(connection, project.id, "autre")).toBe("forbidden");
     expect(await deleteProject(connection, project.id, authorId)).toBe("ok");
     expect(await getProject(connection, project.id)).toMatchObject({
-      title: "Projet supprimé", authorHandle: null, technologies: [], deleted: true,
+      title: "Projet supprimé", authorHandle: null, technologies: [], roles: [], deleted: true,
     });
     expect((await listProjects(connection)).some((item) => item.id === project.id)).toBe(false);
     expect(await listMemberProjects(connection, handle)).toEqual([]);

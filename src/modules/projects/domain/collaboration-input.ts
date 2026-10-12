@@ -1,5 +1,5 @@
-export type CollaborationStatus = "pending" | "accepted" | "rejected";
-export type CollaborationDecision = Exclude<CollaborationStatus, "pending">;
+export type CollaborationStatus = "pending" | "accepted" | "rejected" | "withdrawn";
+export type CollaborationDecision = "accepted" | "rejected";
 
 export interface CollaborationRequest {
   memberId: string;

@@ -1,0 +1,21 @@
+CREATE TABLE `content_attachments` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `public_id` CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `post_id` BIGINT UNSIGNED NULL,
+  `project_id` BIGINT UNSIGNED NULL,
+  `filename` VARCHAR(160) NOT NULL,
+  `mime_type` VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `byte_size` INT UNSIGNED NOT NULL,
+  `file_data` MEDIUMBLOB NOT NULL,
+  `created_at` DATETIME(3) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_attachment_public_id` (`public_id`),
+  KEY `idx_attachment_post` (`post_id`, `id`),
+  KEY `idx_attachment_project` (`project_id`, `id`),
+  CONSTRAINT `fk_attachment_post` FOREIGN KEY (`post_id`) REFERENCES `posts` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_attachment_project` FOREIGN KEY (`project_id`) REFERENCES `member_projects` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `chk_attachment_target` CHECK ((`post_id` IS NULL) <> (`project_id` IS NULL)),
+  CONSTRAINT `chk_attachment_size` CHECK (`byte_size` BETWEEN 1 AND 4194304 AND OCTET_LENGTH(`file_data`) = `byte_size`),
+  CONSTRAINT `chk_attachment_mime` CHECK (`mime_type` IN ('image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'text/plain')),
+  CONSTRAINT `chk_attachment_project_image` CHECK (`project_id` IS NULL OR `mime_type` IN ('image/jpeg', 'image/png', 'image/webp'))
+) ENGINE = InnoDB DEFAULT CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;

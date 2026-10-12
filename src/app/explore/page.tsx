@@ -1,3 +1,4 @@
+import { projectLabels as labels } from "@/modules/projects/domain/project-input";
 import {
   exploreHref, exploreMaxPage, parseExploreQuery, type ExploreQuery,
 } from "@/modules/explore/domain/explore-query";
@@ -5,7 +6,7 @@ import { authPool } from "@/server/auth/db";
 import { searchExplore, type ExploreResult } from "@/server/explore/explore-repository";
 
 export const dynamic = "force-dynamic";
-const labels = { idea: "Idée", building: "En cours", live: "Disponible" };
+
 
 export default async function ExplorePage({ searchParams }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -52,8 +53,8 @@ export default async function ExplorePage({ searchParams }: {
         <p><label>Technologie exacte{" "}<input name="technology" maxLength={32} defaultValue={query.technology} placeholder="Next.js" /></label></p>
         <p><label>Statut{" "}<select name="status" defaultValue={query.status}>
           <option value="">Tous les statuts</option>
-          <option value="idea">Idée</option><option value="building">En cours</option>
-          <option value="live">Disponible</option>
+          <option value="idea">Préparation</option><option value="building">En cours</option>
+          <option value="paused">En pause</option><option value="live">Terminé</option>
         </select></label></p>
       </>}
       <button type="submit">Rechercher</button>{" "}
