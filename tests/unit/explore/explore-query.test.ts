@@ -45,3 +45,7 @@ it("traite les jokers LIKE comme du texte littéral", () => {
   expect(literalContains("50%_!" )).toBe("%50!%!_!!%");
   expect(literalContains("a'b\\c")).toBe("%a'b\\c%");
 });
+
+it("accepte le filtre des projets en pause", () => {
+  expect(parseExploreQuery(new URLSearchParams({ kind: "projects", status: "paused" })).status).toBe("paused");
+});

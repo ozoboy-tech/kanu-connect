@@ -1,3 +1,4 @@
+import { projectLabels as labels } from "@/modules/projects/domain/project-input";
 import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { validPostId } from "@/modules/posts/domain/post-input";
@@ -9,7 +10,7 @@ import ProjectActions from "./project-actions";
 import ProjectCollaboration from "./project-collaboration";
 
 
-const labels = { idea: "Idée", building: "En cours", live: "Disponible" };
+
 
 export default async function ProjectPage({ params }: {
   params: Promise<{ id: string }>;

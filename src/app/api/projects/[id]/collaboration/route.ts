@@ -4,7 +4,7 @@ import { validPostId } from "@/modules/posts/domain/post-input";
 import { authPool } from "@/server/auth/db";
 import { bodyOf, failure, publicError, sameOrigin } from "@/server/auth/http";
 import {
-  decideCollaboration, listCollaborations, requestCollaboration,
+  decideCollaboration, listCollaborations, requestCollaboration, withdrawCollaboration,
 } from "@/server/projects/collaboration-repository";
 
 type Context = { params: Promise<{ id: string }> };
@@ -19,7 +19,7 @@ async function handle(request: NextRequest, context: Context): Promise<Response>
     const session = await auth();
     if (!session?.user?.id) return failure("Connexion requise.", 401);
     if (!session.user.onboarded) return failure("Profil à compléter.", 403);
-    const body = request.method === "GET" ? null : await bodyOf(request, 8192);
+    const body = ["GET", "DELETE"].includes(request.method) ? null : await bodyOf(request, 8192);
     if (request.method === "POST" &&
         Object.keys(body!).some((key) => key !== "message")) {
       return failure("Champs invalides.", 400);
@@ -40,6 +40,8 @@ async function handle(request: NextRequest, context: Context): Promise<Response>
       }
       const result = request.method === "POST"
         ? await requestCollaboration(connection, id, session.user.id, body?.message)
+        : request.method === "DELETE"
+          ? await withdrawCollaboration(connection, id, session.user.id)
         : await decideCollaboration(
             connection, id, session.user.id, body!.memberId as string, body?.decision,
           );
@@ -50,9 +52,9 @@ async function handle(request: NextRequest, context: Context): Promise<Response>
       if (result === "forbidden") return failure("Action non autorisée.", 403);
       return failure(result === "duplicate"
         ? "Tu as déjà envoyé une demande pour ce projet."
-        : "Cette demande a déjà reçu une décision.", 409);
+        : "Cette demande a déjà reçu une décision ou a été retirée.", 409);
     } finally { connection.release(); }
   } catch (error) { return publicError(error); }
 }
 
-export { handle as GET, handle as POST, handle as PATCH };
+export { handle as GET, handle as POST, handle as PATCH, handle as DELETE };

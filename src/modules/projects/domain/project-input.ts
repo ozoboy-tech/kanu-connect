@@ -1,5 +1,9 @@
-export const projectStatuses = ["idea", "building", "live"] as const;
+export const projectStatuses = ["idea", "building", "paused", "live"] as const;
 export type ProjectStatus = typeof projectStatuses[number];
+export const projectLabels: Record<ProjectStatus, string> = {
+  idea: "Préparation", building: "En cours", paused: "En pause", live: "Terminé",
+};
+export interface ProjectRole { label: string; filled: boolean }
 
 export interface ProjectInput {
   title: string;
@@ -9,6 +13,28 @@ export interface ProjectInput {
   technologies: string[];
   repositoryUrl: string | null;
   demoUrl: string | null;
+  roles?: ProjectRole[];
+}
+
+export function parseProjectRoles(value: unknown): ProjectRole[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length > 8) throw new TypeError("Rôles invalides.");
+  const seen = new Set<string>();
+  return value.map((item: unknown) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) throw new TypeError("Rôle invalide.");
+    const role = item as Record<string, unknown>;
+    if (Object.keys(role).some((key) => key !== "label" && key !== "filled") ||
+        typeof role.label !== "string" || typeof role.filled !== "boolean") {
+      throw new TypeError("Rôle invalide.");
+    }
+    const label = role.label.trim().replace(/\s+/gu, " ");
+    const key = label.toLocaleLowerCase("fr");
+    if (!label || label.length > 64 || /[\u0000-\u001f\u007f]/u.test(label) || seen.has(key)) {
+      throw new TypeError("Rôle invalide ou dupliqué.");
+    }
+    seen.add(key);
+    return { label, filled: role.filled };
+  });
 }
 
 function httpsUrl(value: unknown): string | null {
@@ -33,7 +59,7 @@ export function parseProjectInput(value: unknown): ProjectInput {
   const input = value as Record<string, unknown>;
   const allowed = new Set([
     "title", "summary", "description", "status", "technologies",
-    "repositoryUrl", "demoUrl",
+    "repositoryUrl", "demoUrl", "roles",
   ]);
   if (Object.keys(input).some((key) => !allowed.has(key)) ||
       typeof input.title !== "string" || typeof input.summary !== "string" ||
@@ -62,10 +88,15 @@ export function parseProjectInput(value: unknown): ProjectInput {
     seen.add(key);
     technologies.push(tech);
   }
+  const demoUrl = httpsUrl(input.demoUrl);
+  if (input.status === "live" && !demoUrl) {
+    throw new TypeError("Une démonstration HTTPS est requise pour un projet terminé.");
+  }
   return {
     title, summary, description, status: input.status as ProjectStatus,
     technologies,
     repositoryUrl: httpsUrl(input.repositoryUrl),
-    demoUrl: httpsUrl(input.demoUrl),
+    demoUrl,
+    roles: parseProjectRoles(input.roles),
   };
 }

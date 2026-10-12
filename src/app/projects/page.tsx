@@ -1,9 +1,10 @@
+import { projectLabels as labels } from "@/modules/projects/domain/project-input";
 import { authPool } from "@/server/auth/db";
 import { listProjects } from "@/server/projects/project-repository";
 
 export const dynamic = "force-dynamic";
 
-const labels = { idea: "Idée", building: "En cours", live: "Disponible" };
+
 
 export default async function ProjectsPage() {
   const connection = await authPool().getConnection();

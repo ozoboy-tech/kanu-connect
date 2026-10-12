@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 
-import type { ProjectInput, ProjectStatus } from "@/modules/projects/domain/project-input";
+import { parseProjectInput, type ProjectInput, type ProjectRole, type ProjectStatus } from "@/modules/projects/domain/project-input";
 import { awardActivity } from "@/server/reputation/reputation-repository";
 import { hiddenSql } from "@/server/reports/report-rules";
 
@@ -16,6 +16,7 @@ interface ProjectRow extends RowDataPacket {
   technologies: string | string[];
   repositoryUrl: string | null;
   demoUrl: string | null;
+  roles: string | ProjectRole[];
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
@@ -37,6 +38,7 @@ export interface PublicProject {
   description: string | null;
   status: ProjectStatus | null;
   technologies: string[];
+  roles: ProjectRole[];
   repositoryUrl: string | null;
   demoUrl: string | null;
   createdAt: Date;
@@ -47,7 +49,7 @@ export interface PublicProject {
 const projection = `SELECT p.public_id AS id,
   m.public_id AS authorId, profile.handle AS authorHandle,
   p.title, p.summary, p.description, p.status, p.technologies,
-  p.repository_url AS repositoryUrl, p.demo_url AS demoUrl,
+  p.repository_url AS repositoryUrl, p.demo_url AS demoUrl, p.recruitment_roles AS roles,
   p.created_at AS createdAt, p.updated_at AS updatedAt,
   p.deleted_at AS deletedAt,
   ${hiddenSql("project", "p")} AS hidden
@@ -59,13 +61,14 @@ function present(row: ProjectRow): PublicProject {
   if (row.deletedAt) return {
     id: row.id, authorId: null, authorHandle: null,
     title: "Projet supprimé", summary: null, description: null,
-    status: null, technologies: [], repositoryUrl: null, demoUrl: null,
+    status: null, technologies: [], roles: [], repositoryUrl: null, demoUrl: null,
     createdAt: row.createdAt, updatedAt: row.updatedAt, deleted: true,
   };
   return {
     id: row.id, authorId: row.authorId, authorHandle: row.authorHandle,
     title: row.title, summary: row.summary, description: row.description,
     status: row.status,
+    roles: typeof row.roles === "string" ? JSON.parse(row.roles) as ProjectRole[] : row.roles,
     technologies: typeof row.technologies === "string"
       ? JSON.parse(row.technologies) as string[] : row.technologies,
     repositoryUrl: row.repositoryUrl, demoUrl: row.demoUrl,
@@ -107,20 +110,22 @@ export async function listMemberProjects(
 export async function createProject(
   connection: PoolConnection, authorId: string, input: ProjectInput,
 ): Promise<PublicProject> {
+  input = parseProjectInput(input);
   const id = randomUUID();
   await connection.beginTransaction();
   try {
     const [result] = await connection.execute<ResultSetHeader>(
       `INSERT INTO member_projects
        (public_id, member_id, title, summary, description, status,
-        technologies, repository_url, demo_url, created_at, updated_at)
-       SELECT ?, m.id, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP(3), UTC_TIMESTAMP(3)
+        technologies, repository_url, demo_url, recruitment_roles, created_at, updated_at)
+       SELECT ?, m.id, ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP(3), UTC_TIMESTAMP(3)
        FROM members m
        JOIN member_profiles profile ON profile.member_id = m.id
        JOIN member_private_identities private_identity ON private_identity.member_id = m.id
        WHERE m.public_id = ?`,
       [id, input.title, input.summary, input.description, input.status,
-        JSON.stringify(input.technologies), input.repositoryUrl, input.demoUrl, authorId],
+        JSON.stringify(input.technologies), input.repositoryUrl, input.demoUrl,
+        JSON.stringify(input.roles), authorId],
     );
     if (result.affectedRows !== 1) throw new TypeError("Compte incomplet.");
     const [authors] = await connection.execute<(RowDataPacket & { id: number })[]>(
@@ -153,6 +158,7 @@ export async function updateProject(
   connection: PoolConnection, id: string, authorId: string,
   input: ProjectInput,
 ): Promise<ProjectMutation> {
+  input = parseProjectInput(input);
   await connection.beginTransaction();
   try {
     const project = await lockProject(connection, id);
@@ -165,12 +171,12 @@ export async function updateProject(
     await connection.execute(
       `UPDATE member_projects
        SET title = ?, summary = ?, description = ?, status = ?,
-           technologies = ?, repository_url = ?, demo_url = ?,
+           technologies = ?, repository_url = ?, demo_url = ?, recruitment_roles = ?,
            updated_at = UTC_TIMESTAMP(3)
        WHERE id = ? AND deleted_at IS NULL`,
       [input.title, input.summary, input.description, input.status,
         JSON.stringify(input.technologies), input.repositoryUrl,
-        input.demoUrl, project.internalId],
+        input.demoUrl, JSON.stringify(input.roles), project.internalId],
     );
     await connection.commit();
     return "ok";

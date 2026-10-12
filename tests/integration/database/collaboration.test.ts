@@ -5,7 +5,7 @@ import { registerEmail } from "@/server/auth/accounts";
 import { reviewContent } from "@/server/moderation/moderation-repository";
 import { createProject, deleteProject } from "@/server/projects/project-repository";
 import {
-  decideCollaboration, listCollaborations, requestCollaboration,
+  decideCollaboration, listCollaborations, requestCollaboration, withdrawCollaboration,
 } from "@/server/projects/collaboration-repository";
 import { reportContent } from "@/server/reports/report-repository";
 import { runMigrations } from "../../../scripts/migrate.mjs";
@@ -48,6 +48,22 @@ it("protège les demandes, leurs décisions et les envois simultanés", async ()
     };
     const project = await createProject(connection, owner, input);
     const another = await createProject(connection, owner, input);
+    const withdrawal = await createProject(connection, owner, input);
+    expect(await withdrawCollaboration(connection, withdrawal.id, owner)).toBe("forbidden");
+    expect(await withdrawCollaboration(connection, withdrawal.id, bob)).toBe("not_found");
+    expect(await requestCollaboration(connection, withdrawal.id, alice, "Demande à retirer")).toBe("ok");
+    expect(await withdrawCollaboration(connection, withdrawal.id, alice)).toBe("ok");
+    expect(await withdrawCollaboration(connection, withdrawal.id, alice)).toBe("ok");
+    expect((await listCollaborations(connection, withdrawal.id, alice))?.requests[0].status).toBe("withdrawn");
+    expect(await decideCollaboration(connection, withdrawal.id, owner, alice, "accepted")).toBe("conflict");
+    expect(await requestCollaboration(connection, withdrawal.id, alice, "Nouvelle demande")).toBe("duplicate");
+    expect(await requestCollaboration(connection, withdrawal.id, bob, "Demande simultanée")).toBe("ok");
+    const withdrawalRace = await Promise.all([
+      withdrawCollaboration(connection, withdrawal.id, bob),
+      decideCollaboration(parallel, withdrawal.id, owner, bob, "accepted"),
+    ]);
+    expect(withdrawalRace.sort()).toEqual(["conflict", "ok"]);
+    expect(["withdrawn", "accepted"]).toContain((await listCollaborations(connection, withdrawal.id, bob))?.requests[0].status);
     expect(await requestCollaboration(connection, project.id, owner, "Moi"))
       .toBe("forbidden");
 
@@ -82,6 +98,7 @@ it("protège les demandes, leurs décisions et les envois simultanés", async ()
       .toBe("duplicate");
     expect((await listCollaborations(connection, project.id, alice))?.requests[0].status)
       .toBe("accepted");
+    expect(await withdrawCollaboration(connection, project.id, alice)).toBe("conflict");
     expect((await listCollaborations(connection, project.id, bob))?.requests[0].status)
       .toBe("rejected");
 
@@ -90,6 +107,7 @@ it("protège les demandes, leurs décisions et les envois simultanés", async ()
     expect(await reviewContent(connection, "project", project.id, owner, "hide", "Test"))
       .toBe("ok");
     expect(await listCollaborations(connection, project.id, owner)).toBeNull();
+    expect(await withdrawCollaboration(connection, project.id, alice)).toBe("not_found");
     expect(await requestCollaboration(connection, project.id, alice, "Test"))
       .toBe("not_found");
     expect(await decideCollaboration(connection, project.id, owner, bob, "accepted"))

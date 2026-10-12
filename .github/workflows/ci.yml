@@ -41,7 +41,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Aligner la version de npm
-        run: npm install --global npm@11.19.0 --ignore-scripts
+        run: npm install --global npm@12.2.0 --ignore-scripts
 
       - name: Installer les dependances
         run: npm run setup:windows
