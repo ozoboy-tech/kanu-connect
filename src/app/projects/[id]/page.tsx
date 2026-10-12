@@ -8,6 +8,7 @@ import VoteButton from "@/app/components/vote-button";
 import ReportButton from "@/app/components/report-button";
 import ProjectActions from "./project-actions";
 import ProjectCollaboration from "./project-collaboration";
+import AttachmentPanel from "@/app/components/attachment-panel";
 
 
 
@@ -33,6 +34,10 @@ export default async function ProjectPage({ params }: {
       <p style={{ whiteSpace: "pre-wrap" }}>{project.description}</p>
       <h2>Technologies</h2>
       <ul>{project.technologies.map((item) => <li key={item}>{item}</li>)}</ul>
+      <h2>Rôles recherchés</h2>
+      {project.roles.length === 0 && <p>Aucun rôle précisé.</p>}
+      <ul>{project.roles.map((role) => <li key={role.label}>{role.label} · {role.filled ? "Pourvu" : "À pourvoir"}</li>)}</ul>
+      {project.status === "live" && !project.demoUrl && <p>La démonstration de ce projet ancien n’a pas encore été renseignée.</p>}
       {project.repositoryUrl && <p><a href={project.repositoryUrl}
         rel="noopener noreferrer">Dépôt du projet</a></p>}
             {project.demoUrl && <p><a href={project.demoUrl}
@@ -45,6 +50,8 @@ export default async function ProjectPage({ params }: {
         viewerId={session?.user.id ?? null}
         authorId={project.authorId}
         canReport={!!session?.user.onboarded} />
+      <AttachmentPanel kind="project" id={project.id}
+        canEdit={!!session?.user.onboarded && session.user.id === project.authorId} />
 
 
 

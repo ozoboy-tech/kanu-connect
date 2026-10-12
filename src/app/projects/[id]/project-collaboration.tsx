@@ -72,6 +72,18 @@ export default function ProjectCollaboration({ projectId, viewerId, onboarded }:
     } finally { setBusy(false); }
   }
 
+  async function withdraw() {
+    if (busy) return;
+    setBusy(true); setError("");
+    try {
+      const response = await fetch(endpoint, { method: "DELETE" });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Retrait impossible.");
+      setData(await read());
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Retrait impossible."); }
+    finally { setBusy(false); }
+  }
+
   if (!viewerId) return <section>
     <h2>Collaborer sur ce projet</h2>
     <a href="/api/auth/signin">Se connecter pour proposer son aide</a>
@@ -101,6 +113,9 @@ export default function ProjectCollaboration({ projectId, viewerId, onboarded }:
         {data.isOwner && <a href={`/u/${request.handle}`}>@{request.handle}</a>}
         <p style={{ whiteSpace: "pre-wrap" }}>{request.message}</p>
         <p>Statut : {labels[request.status]}</p>
+        {!data.isOwner && request.status === "pending" && <button type="button" disabled={busy}
+          onClick={() => void withdraw()}>Retirer ma demande</button>}
+        {request.status === "withdrawn" && <p>Demande retirée. Son historique est conservé.</p>}
         {data.isOwner && request.status === "pending" && <>
           <button type="button" disabled={busy}
             onClick={() => void send("accepted", request.memberId)}>Accepter</button>{" "}
