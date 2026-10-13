@@ -60,6 +60,21 @@ it(
   },
 );
 
+it.each(["verify", "reset"] as const)(
+  "affiche aussi le lien %s sur localhost utilisé par le lanceur",
+  async (purpose) => {
+    localEnv();
+    vi.stubEnv("AUTH_URL", "http://localhost:3000");
+    const log = vi.spyOn(console, "info").mockImplementation(() => {});
+    await sendAuthMail("membre@example.test", purpose, "token-test");
+    expect(log).toHaveBeenCalledWith(expect.stringContaining(
+      purpose === "verify"
+        ? "http://localhost:3000/api/auth/verify-email?token=token-test"
+        : "http://localhost:3000/reset-password?token=token-test",
+    ));
+  },
+);
+
 it.each([
   [
     "production",
@@ -76,6 +91,10 @@ it.each([
     "kanuconnectdev",
     "https://example.test",
   ],
+  ["production", "kanuconnectdev", "http://localhost:3000"],
+  ["development", "kanuconnecttest", "http://localhost:3000"],
+  ["development", "kanuconnectdev", "http://localhost:3001"],
+  ["development", "kanuconnectdev", "http://localhost.example.test:3000"],
 ])(
   "refuse le mode console hors du développement local (%s, %s, %s)",
   async (nodeEnv, database, base) => {
