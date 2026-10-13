@@ -93,10 +93,10 @@ export function parseProjectInput(value: unknown): ProjectInput {
     throw new TypeError("Une démonstration HTTPS est requise pour un projet terminé.");
   }
   return {
-    title, summary, description, status: input.status as ProjectStatus,
+        title, summary, description, status: input.status as ProjectStatus,
     technologies,
     repositoryUrl: httpsUrl(input.repositoryUrl),
     demoUrl,
-    roles: parseProjectRoles(input.roles),
+    ...(input.roles === undefined ? {} : { roles: parseProjectRoles(input.roles) }),
   };
 }

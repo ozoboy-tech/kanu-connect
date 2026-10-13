@@ -1,8 +1,10 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  auth: vi.fn(),
   getConnection: vi.fn(), search: vi.fn(), connection: { release: vi.fn() },
 }));
+vi.mock("@/auth", () => ({ auth: mocks.auth }));
 vi.mock("@/server/auth/db", () => ({
   authPool: () => ({ getConnection: mocks.getConnection }),
 }));
@@ -40,7 +42,22 @@ it("libère la connexion et masque les détails d’une erreur SQL", async () =>
 });
 
 it("gère aussi une connexion indisponible", async () => {
-  mocks.getConnection.mockRejectedValue(new Error("secret"));
+mocks.getConnection.mockRejectedValue(new Error("secret"));
   expect((await GET(request())).status).toBe(503);
   expect(mocks.search).not.toHaveBeenCalled();
+});
+
+it("demande une connexion et un profil complet pour les fils personnels", async () => {
+  mocks.auth.mockResolvedValue(null);
+  expect((await GET(request("kind=posts&feed=foryou"))).status).toBe(401);
+  mocks.auth.mockResolvedValue({ user: { id: "viewer", onboarded: false } });
+  expect((await GET(request("kind=posts&feed=following"))).status).toBe(403);
+  expect(mocks.getConnection).not.toHaveBeenCalled();
+});
+
+it("utilise l'identité de session pour le classement personnel", async () => {
+  mocks.auth.mockResolvedValue({ user: { id: "viewer", onboarded: true } });
+  expect((await GET(request("kind=posts&feed=foryou"))).status).toBe(200);
+  expect(mocks.search).toHaveBeenCalledWith(mocks.connection,
+    expect.objectContaining({ kind: "posts", feed: "foryou" }), "viewer");
 });

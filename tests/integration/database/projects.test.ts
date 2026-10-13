@@ -61,8 +61,14 @@ it("présente un projet, réserve sa gestion à l'auteur et masque sa suppressio
     expect(await getProject(connection, project.id)).toMatchObject({
       status: "paused", roles: [{ label: "Front-end", filled: false }, { label: "Data", filled: true }],
     });
+    expect(await updateProject(connection, project.id, authorId, { ...input, title: "Titre corrigé" })).toBe("ok");
+    expect((await getProject(connection, project.id))?.roles).toEqual([
+      { label: "Front-end", filled: false }, { label: "Data", filled: true },
+    ]);
+    expect(await updateProject(connection, project.id, authorId, { ...input, roles: [] })).toBe("ok");
+    expect((await getProject(connection, project.id))?.roles).toEqual([]);
     await expect(updateProject(connection, project.id, authorId, { ...input, status: "live" })).rejects.toThrow();
-    expect((await getProject(connection, project.id))?.status).toBe("paused");
+    expect((await getProject(connection, project.id))?.status).toBe("building");
     expect(await updateProject(connection, project.id, authorId, {
       ...input, status: "live", demoUrl: "https://example.org/demo",
     })).toBe("ok");

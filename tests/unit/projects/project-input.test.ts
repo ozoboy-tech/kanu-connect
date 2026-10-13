@@ -39,7 +39,9 @@ describe("Présentation des projets", () => {
   it("normalise les rôles et conserve leur état pourvu", () => {
     expect(parseProjectInput({ ...valid, roles: [{ label: "  Front   end ", filled: false }, { label: "Data", filled: true }] }).roles)
       .toEqual([{ label: "Front end", filled: false }, { label: "Data", filled: true }]);
-    expect(parseProjectInput(valid).roles).toEqual([]);
+    expect(parseProjectInput(valid).roles).toBeUndefined();
+    expect(parseProjectInput(parseProjectInput(valid)).roles).toBeUndefined();
+    expect(parseProjectInput({ ...valid, roles: [] }).roles).toEqual([]);
   });
 
   it("refuse les rôles dupliqués, excessifs ou mal formés", () => {
