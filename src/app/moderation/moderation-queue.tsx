@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type {
   ModerationItem,
@@ -23,6 +23,14 @@ export default function ModerationQueue({
   >({});
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/me/account", { cache: "no-store" })
+      .then(async (response) => response.ok ? await response.json() as { role: string } : null)
+      .then((account) => setIsAdmin(account?.role === "admin"))
+      .catch(() => setIsAdmin(false));
+  }, []);
 
   async function decide(
     item: ModerationItem,
@@ -108,10 +116,11 @@ export default function ModerationQueue({
             </a></p>}
 
           <label>
-            Note interne (facultative)
+            Motif de décision (obligatoire, 5 à 500 caractères)
             <br />
             <textarea
               maxLength={500}
+              minLength={5}
               value={notes[key] ?? ""}
               onChange={(event) =>
                 setNotes((previous) => ({
@@ -133,15 +142,15 @@ export default function ModerationQueue({
               Maintenir masqué
             </button>
 
-            <button
+            {isAdmin && <button
               type="button"
               disabled={!!busy}
               onClick={() =>
                 void decide(item, "restore")
               }
             >
-              Rétablir
-            </button>
+              Rétablir (décision finale)
+            </button>}
           </div>
         </li>;
       })}

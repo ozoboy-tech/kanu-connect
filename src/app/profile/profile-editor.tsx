@@ -32,7 +32,7 @@ export default function ProfileEditor({ initial }: { initial: OwnProfile }) {
         setMessage(result.error ?? "Enregistrement impossible.");
         return;
       }
-      setProfile(result as OwnProfile);
+         setProfile(result as OwnProfile);
       setMessage("Profil enregistré.");
     } catch {
       setMessage("Connexion impossible. Réessaie.");
@@ -42,7 +42,8 @@ export default function ProfileEditor({ initial }: { initial: OwnProfile }) {
   return <main>
     <h1>Mon profil</h1>
     <p><a href="/preferences">Catégories, rappels et notifications</a> · <a href="/saved">Mes enregistrements</a>
-      {" · "}<a href={`/u/${profile.handle}/activity`}>Mon activité</a></p>
+      {" · "}<a href={`/u/${profile.handle}/activity`}>Mon activité</a>
+      {" · "}<a href="/account">Compte et confidentialité</a></p>
     <p>Nom légal (privé) : {profile.legalName}</p>
     <p><a href={`/u/${profile.handle}`}>Voir mon profil public</a></p>
     {profile.photoUrl && <img src={profile.photoUrl} alt="Ma photo de profil"
@@ -52,8 +53,7 @@ export default function ProfileEditor({ initial }: { initial: OwnProfile }) {
         <input name="handle" key={profile.handle} defaultValue={profile.handle}
           required minLength={3} maxLength={30} pattern="[a-z0-9_]{3,30}" />
       </label></p>
-      <p><label>URL HTTPS de la photo<br />
-        <input name="photoUrl" type="url" key={profile.photoUrl ?? ""}
+      <p><label>URL HTTPS de la photo<br />        <input name="photoUrl" type="url" key={profile.photoUrl ?? ""}
           defaultValue={profile.photoUrl ?? ""} maxLength={2048} />
       </label></p>
       <p><label>Bio<br />
