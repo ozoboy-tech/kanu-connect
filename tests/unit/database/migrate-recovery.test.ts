@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -32,9 +33,9 @@ function prepareConnection(tableExists: boolean, applied: {name: string;checksum
         return [tableExists ? [{ present: 1 }] : []];
       }
       if (statement.includes("CREATE TABLE IF NOT EXISTS _kanu_migrations") ||
-    statement.includes("CREATE TABLE IF NOT EXISTS `") ||
-    statement.includes("CREATE TABLE `") ||
-    statement.startsWith("ALTER TABLE `")) return [[]];
+        statement.includes("CREATE TABLE IF NOT EXISTS `") ||
+        statement.includes("CREATE TABLE `") ||
+        statement.startsWith("ALTER TABLE `")) return [[]];
       throw new Error(`Requête inattendue : ${statement}`);
     }),
     execute: vi.fn(async (statement: string) => {
@@ -211,7 +212,21 @@ describe("Reprise contrôlée de la migration members", () => {
   "0038_content_bookmarks.sql",
   "0039_member_followed_topics.sql",
   "0040_project_bookmarks.sql",
+  "0041_solution_notifications.sql",
+  "0042_notification_preferences.sql",
 ]);
-expect(applied).toHaveLength(40);
+expect(applied).toHaveLength(42);
 });
+});
+
+it("limite chaque nouvelle migration à une instruction MySQL", async () => {
+  for (const filename of [
+    "0037_discovery_preferences.sql", "0038_content_bookmarks.sql",
+    "0039_member_followed_topics.sql", "0040_project_bookmarks.sql",
+    "0041_solution_notifications.sql", "0042_notification_preferences.sql",
+  ]) {
+    const sql = await readFile(new URL(`../../../db/migrations/${filename}`, import.meta.url), "utf8");
+    expect((sql.match(/\b(?:CREATE|ALTER)\s+TABLE\b/giu) ?? [])).toHaveLength(1);
+    expect(sql.split(";").filter((statement) => statement.trim())).toHaveLength(1);
+  }
 });

@@ -67,8 +67,15 @@ it("lit uniquement les notifications du membre connecté", async () => {
   const response = await GET(new NextRequest(`${url}?memberId=other`));
   expect(response.status).toBe(200);
   expect(response.headers.get("Cache-Control")).toBe("private, no-store");
-  expect(mocks.list).toHaveBeenCalledWith(connection, "viewer", null);
+  expect(mocks.list).toHaveBeenCalledWith(connection, "viewer", null, "all");
   expect(mocks.release).toHaveBeenCalledOnce();
+});
+
+it("applique le filtre choisi et refuse les filtres inconnus", async () => {
+  expect((await GET(new NextRequest(`${url}?filter=solutions&before=27`))).status).toBe(200);
+  expect(mocks.list).toHaveBeenCalledWith(connection, "viewer", "27", "solutions");
+  expect((await GET(new NextRequest(`${url}?filter=unknown`))).status).toBe(400);
+  expect(mocks.getConnection).toHaveBeenCalledOnce();
 });
 
 it("marque la notification avec le membre de la session", async () => {
