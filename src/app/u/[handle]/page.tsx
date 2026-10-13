@@ -8,8 +8,7 @@ import { listMemberProjects } from "@/server/projects/project-repository";
 import { getReputation } from "@/server/reputation/reputation-repository";
 import { getPublicStreak } from "@/server/streaks/streak-repository";
 import FollowPanel from "./follow-panel";
-
-
+import { publicTopics } from "@/server/discovery/preferences-repository";
 export default async function PublicProfilePage({
   params,
 }: { params: Promise<{ handle: string }> }) {
@@ -21,6 +20,7 @@ export default async function PublicProfilePage({
   try {
     const profile = await getPublicProfile(connection, handle);
     if (!profile) notFound();
+    const topics = await publicTopics(connection, handle);
 const projects = await listMemberProjects(connection, handle);
     const reputation = await getReputation(connection, handle);
     const streak = await getPublicStreak(connection, handle);
@@ -28,6 +28,9 @@ const projects = await listMemberProjects(connection, handle);
     if (!stats) notFound();
     return <main>
       <h1>@{profile.handle}</h1>
+      <p><a href={`/u/${profile.handle}/activity`}>Voir l’activité publique</a></p>
+      <h2>Catégories suivies</h2>
+      <p>{topics.join(", ") || "Aucune catégorie précisée."}</p>
       <FollowPanel handle={profile.handle} initial={stats}
         canFollow={!!session?.user.onboarded && session.user.id !== profile.publicId} />
       {!session?.user.id && <p><a href="/api/auth/signin">Connecte-toi</a>

@@ -3,22 +3,34 @@ import { auth } from "@/auth";
 import { isModerator } from "@/server/moderation/moderator";
 import { authPool } from "@/server/auth/db";
 import { countUnreadNotifications } from "@/server/notifications/notification-repository";
+import { getDiscoveryPreferences } from "@/server/discovery/preferences-repository";
 
 
 export default async function Home() {
   const session = await auth();
   if (session && !session.user.onboarded) redirect("/onboarding");
   let unreadCount = 0;
+  let remindersEnabled = false;
   if (session?.user?.id) {
     const connection = await authPool().getConnection();
-    try { unreadCount = await countUnreadNotifications(connection, session.user.id); }
+    try {
+      const preferences = await getDiscoveryPreferences(connection, session.user.id);
+      if (preferences && !preferences.welcomeCompleted) redirect("/welcome");
+      remindersEnabled = preferences?.remindersEnabled ?? false;
+      unreadCount = await countUnreadNotifications(connection, session.user.id);
+    }
     finally { connection.release(); }
   }
   return (
     <main>
       <div>KANU CONNECT</div>
             <p><a href="/feed">Publications</a> · <a href="/projects">Projets</a> · <a href="/opportunities">Opportunités</a> · <a href="/explore">Explorer</a> · <a href="/leaderboard">Classement</a></p>
-{session && <p><a href="/profile">Mon profil</a></p>}
+{session && <p><a href="/profile">Mon profil</a> · <a href="/saved">Mes enregistrements</a>
+  {" · "}<a href="/preferences">Mes préférences</a></p>}
+      {session && remindersEnabled && <aside aria-label="Rappel Kanu">
+        <p>Complète tes compétences et tes catégories pour personnaliser ton fil.
+          {" "}<a href="/preferences">Modifier ou désactiver les rappels</a></p>
+      </aside>}
       {session && <p><a href="/notifications">Notifications ({unreadCount})</a></p>}
 
       {isModerator(session?.user.id) &&

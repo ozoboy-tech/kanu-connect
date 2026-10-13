@@ -12,7 +12,7 @@ export default function OnboardingPage() {
       body: JSON.stringify({ legalName: data.get("legalName"), handle: data.get("handle") }),
     });
     const result = await response.json();
-    if (response.ok) window.location.assign("/");
+    if (response.ok) window.location.assign("/welcome");
     else setMessage(result.error);
   }
   return <main><h1>Compléter le compte</h1>
