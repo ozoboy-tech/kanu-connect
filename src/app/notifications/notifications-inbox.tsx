@@ -15,6 +15,15 @@ const labels = {
 
 };
 
+const filters: { id: NotificationFilter; label: string }[] = [
+  { id: "all", label: "Toutes" },
+  { id: "unread", label: "Non lues" },
+  { id: "projects", label: "Projets" },
+  { id: "community", label: "Communauté" },
+  { id: "opportunities", label: "Opportunités" },
+  { id: "solutions", label: "Solutions" },
+];
+
 export default function NotificationsInbox({ initialPage, filter }: {
   initialPage: NotificationPage; filter: NotificationFilter;
 }) {
@@ -62,11 +71,29 @@ export default function NotificationsInbox({ initialPage, filter }: {
       }));
       setData(await read());
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Action impossible.");
+     setError(reason instanceof Error ? reason.message : "Action impossible.");
     } finally { setBusy(false); }
   }
 
+  async function openNotification(id: string, href: string) {
+    if (busy) { window.location.assign(href); return; }
+    setBusy(true); setError("");
+    try {
+      await check(await fetch(endpoint, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      }));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Lecture impossible.");
+    } finally { window.location.assign(href); }
+  }
+
   return <section aria-label="Notifications" aria-busy={busy}>
+    <nav aria-label="Filtrer les notifications">{filters.map(({ id, label }) => <span key={id}>
+      <a href={id === "all" ? "/notifications" : `/notifications?filter=${id}`}
+        aria-current={filter === id ? "page" : undefined}>{label}</a>{" · "}
+    </span>)}</nav>
+    <p><a href="/preferences">Modifier mes préférences de notifications</a></p>
     {error && <p role="alert">{error}</p>}
     <button type="button" disabled={busy} onClick={() => void load()}>Actualiser</button>
     {busy && <p role="status">Chargement…</p>}
@@ -78,10 +105,16 @@ export default function NotificationsInbox({ initialPage, filter }: {
           {item.kind === "solution"
             ? <>Ta réponse à la question de @{item.actorHandle} est devenue la solution.</>
             : <>@{item.actorHandle} {labels[item.kind]}.</>}</p>
-        <p>{"projectId" in item ? <a
-          href={`/projects/${item.projectId}${item.kind === "discussion" ? "/discussion" : ""}`}>
-          {item.projectTitle}
-        </a> : <a href={`/posts/${item.postId}`}>{item.postTitle}</a>}</p>
+        <p>{(() => {
+          const href = "projectId" in item
+            ? `/projects/${item.projectId}${item.kind === "discussion" ? "/discussion" : ""}`
+            : `/posts/${item.postId}`;
+          return <a href={href} onClick={(event) => {
+            if (item.readAt || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            event.preventDefault();
+            void openNotification(item.id, href);
+          }}>{"projectId" in item ? item.projectTitle : item.postTitle}</a>;
+        })()}</p>
         <p><time dateTime={item.createdAt}>
           {item.createdAt.slice(0, 19).replace("T", " ")} UTC
         </time></p>

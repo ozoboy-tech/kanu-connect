@@ -41,7 +41,7 @@ export default function ProfileEditor({ initial }: { initial: OwnProfile }) {
 
   return <main>
     <h1>Mon profil</h1>
-    <p><a href="/preferences">Mes catégories et rappels</a> · <a href="/saved">Mes enregistrements</a>
+    <p><a href="/preferences">Catégories, rappels et notifications</a> · <a href="/saved">Mes enregistrements</a>
       {" · "}<a href={`/u/${profile.handle}/activity`}>Mon activité</a></p>
     <p>Nom légal (privé) : {profile.legalName}</p>
     <p><a href={`/u/${profile.handle}`}>Voir mon profil public</a></p>
