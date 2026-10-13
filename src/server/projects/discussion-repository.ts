@@ -23,6 +23,9 @@ async function access(
      JOIN member_profiles profile ON profile.member_id = m.id
      JOIN member_private_identities identity_record ON identity_record.member_id = m.id
      WHERE p.public_id = ? AND p.deleted_at IS NULL
+       AND NOT EXISTS (SELECT 1 FROM member_blocks b WHERE
+         (b.blocker_id = m.id AND b.blocked_id = p.member_id) OR
+         (b.blocked_id = m.id AND b.blocker_id = p.member_id))
        AND NOT ${hiddenSql("project", "p")}
        AND (p.member_id = m.id OR EXISTS (
          SELECT 1 FROM project_collaboration_requests request_record
@@ -41,7 +44,7 @@ export async function listDiscussionMessages(
   const cursor = parseDiscussionCursor(before);
   const target = await access(connection, projectId, viewerId);
   if (!target) return null;
-  const values: (string | number)[] = [target.projectId];
+  const values: (string | number)[] = [target.projectId, target.memberId, target.memberId];
   if (cursor) values.push(cursor);
   const [rows] = await connection.execute<MessageRow[]>(
     `SELECT CAST(d.id AS CHAR) AS id, m.public_id AS authorId,
@@ -49,7 +52,11 @@ export async function listDiscussionMessages(
      FROM project_discussion_messages d
      JOIN members m ON m.id = d.author_id
      JOIN member_profiles profile ON profile.member_id = m.id
-     WHERE d.project_id = ?${cursor ? " AND d.id < CAST(? AS UNSIGNED)" : ""}
+     WHERE d.project_id = ?
+       AND NOT EXISTS (SELECT 1 FROM member_blocks b WHERE
+         (b.blocker_id = ? AND b.blocked_id = d.author_id) OR
+         (b.blocked_id = ? AND b.blocker_id = d.author_id))
+       ${cursor ? " AND d.id < CAST(? AS UNSIGNED)" : ""}
      ORDER BY d.id DESC LIMIT 21`, values,
   );
   const page = rows.slice(0, 20);

@@ -103,6 +103,9 @@ it("protège les demandes, leurs décisions et les envois simultanés", async ()
       .toBe("rejected");
 
     process.env.KANU_MODERATOR_IDS = owner;
+    await connection.execute(
+      "UPDATE members SET account_role = 'admin' WHERE public_id = ?", [owner],
+    );
     await reportContent(connection, "project", project.id, bob, "spam");
     expect(await reviewContent(connection, "project", project.id, owner, "hide", "Test"))
       .toBe("ok");

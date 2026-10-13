@@ -12,7 +12,12 @@ export async function suggestedMembers(connection: PoolConnection, viewerId: str
          OR EXISTS (SELECT 1 FROM member_followed_topics topic
           WHERE topic.member_id = viewer.id AND topic.keyword = candidate.label))) AS sharedInterests
      FROM member_profiles profile JOIN members viewer ON viewer.public_id = ?
-     WHERE profile.member_id <> viewer.id AND NOT EXISTS
+     JOIN members candidate_member ON candidate_member.id = profile.member_id
+     WHERE profile.member_id <> viewer.id AND candidate_member.account_status = 'active'
+       AND NOT EXISTS (SELECT 1 FROM member_blocks b WHERE
+         (b.blocker_id = viewer.id AND b.blocked_id = profile.member_id) OR
+         (b.blocked_id = viewer.id AND b.blocker_id = profile.member_id))
+       AND NOT EXISTS
        (SELECT 1 FROM member_follows f WHERE f.follower_id = viewer.id AND f.followed_id = profile.member_id)
      ORDER BY sharedInterests DESC, profile.handle ASC, profile.member_id ASC LIMIT 6`, [viewerId],
   );

@@ -40,7 +40,8 @@ it("permet la liste publique sans données binaires", async () => {
   const response = await GET(request("GET"), context());
   expect(await response.json()).toEqual([]);
   expect(response.headers.get("cache-control")).toBe("no-store");
-  expect(mocks.auth).not.toHaveBeenCalled();
+  expect(mocks.auth).toHaveBeenCalledOnce();
+  expect(mocks.list).toHaveBeenCalledWith(connection, "post", id, null);
 });
 it.each([["not_found", 404], ["forbidden", 403], ["limit", 409], ["ok", 201]])("traduit l'ajout %s en %s", async (result, status) => {
   mocks.add.mockResolvedValue(result);
@@ -60,7 +61,7 @@ it("sert les documents en téléchargement avec nom UTF-8 et sans cache", async 
   expect(response.headers.get("cache-control")).toBe("no-store");
   expect(response.headers.get("x-content-type-options")).toBe("nosniff");
   expect(await response.text()).toBe("pdf");
-  expect(mocks.get).toHaveBeenCalledWith(connection, "post", id, attachmentId);
+  expect(mocks.get).toHaveBeenCalledWith(connection, "post", id, attachmentId, "owner");
 });
 it("autorise l'aperçu uniquement pour une image", async () => {
   mocks.get.mockResolvedValue({ id: attachmentId, filename: "image.png", mimeType: "image/png", size: 3, data: Buffer.from("png") });

@@ -2,6 +2,7 @@ import type { PoolConnection, RowDataPacket } from "mysql2/promise";
 import { validBookmark, type BookmarkKind } from "@/modules/bookmarks/domain/bookmark-input";
 import { pageResult, pageWindow } from "@/shared/domain/pagination";
 import { hiddenSql } from "@/server/reports/report-rules";
+import { visibleToViewerSql } from "@/server/members/block-repository";
 
 const tables = {
   post: { content: "posts", saved: "post_bookmarks", key: "post_id" },
@@ -17,7 +18,8 @@ export async function getBookmark(
     `SELECT EXISTS (SELECT 1 FROM ${table.saved} b JOIN members m ON m.id = b.member_id
        WHERE b.${table.key} = p.id AND m.public_id = ?) AS saved
      FROM ${table.content} p WHERE p.public_id = ? AND p.deleted_at IS NULL
-       AND NOT ${hiddenSql(kind, "p")}`, [viewerId, id],
+       AND NOT ${hiddenSql(kind, "p")}
+       AND ${visibleToViewerSql("p.member_id")}`, [viewerId, id, viewerId, viewerId],
   );
   return rows[0] ? Boolean(rows[0].saved) : null;
 }
@@ -31,7 +33,8 @@ export async function setBookmark(
   try {
     const [content] = await connection.execute<(RowDataPacket & { id: number; deleted: number; hidden: number })[]>(
       `SELECT p.id, p.deleted_at IS NOT NULL AS deleted, ${hiddenSql(kind, "p")} AS hidden
-       FROM ${table.content} p WHERE p.public_id = ? FOR UPDATE`, [id],
+       FROM ${table.content} p WHERE p.public_id = ?
+         AND ${visibleToViewerSql("p.member_id")} FOR UPDATE`, [id, viewerId, viewerId],
     );
     if (!content[0] || (saved && (content[0].deleted || content[0].hidden))) {
       await connection.rollback(); return "not_found";
@@ -64,12 +67,15 @@ export async function listBookmarks(connection: PoolConnection, viewerId: string
      FROM post_bookmarks b JOIN members viewer ON viewer.id = b.member_id
      JOIN posts p ON p.id = b.post_id JOIN member_profiles profile ON profile.member_id = p.member_id
      WHERE viewer.public_id = ? AND p.deleted_at IS NULL AND NOT ${hiddenSql("post", "p")}
+       AND ${visibleToViewerSql("p.member_id")}
      UNION ALL
      SELECT 'project' AS kind, p.public_id AS id, p.title, profile.handle AS authorHandle, b.created_at AS savedAt
      FROM project_bookmarks b JOIN members viewer ON viewer.id = b.member_id
      JOIN member_projects p ON p.id = b.project_id JOIN member_profiles profile ON profile.member_id = p.member_id
      WHERE viewer.public_id = ? AND p.deleted_at IS NULL AND NOT ${hiddenSql("project", "p")}
-     ORDER BY savedAt DESC, kind ASC, id ASC ${windowSql}`, [viewerId, viewerId],
+       AND ${visibleToViewerSql("p.member_id")}
+     ORDER BY savedAt DESC, kind ASC, id ASC ${windowSql}`,
+    [viewerId, viewerId, viewerId, viewerId, viewerId, viewerId],
   );
   return pageResult(rows, page);
 }

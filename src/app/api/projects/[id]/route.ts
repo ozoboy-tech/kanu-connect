@@ -20,9 +20,10 @@ export async function GET(_request: NextRequest, context: Context): Promise<Resp
   const { id } = await context.params;
   if (!validPostId(id)) return failure("Projet introuvable.", 404);
   try {
+    const session = await auth();
     const connection = await authPool().getConnection();
     try {
-      const project = await getProject(connection, id);
+      const project = await getProject(connection, id, session?.user.id ?? null);
       return project ? Response.json(project, { headers: { "Cache-Control": "no-store" } })
         : failure("Projet introuvable.", 404);
     } finally { connection.release(); }

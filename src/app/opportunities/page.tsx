@@ -42,7 +42,7 @@ export default async function OpportunitiesPage({ searchParams }: {
     posts = await listPosts(connection, "opportunities", null, {
       category: category as OpportunityCategory | null,
       subscribedBy: mine ? session!.user.id : null,
-    });
+    }, session?.user.id ?? null);
 
     if (session?.user.id) {
       categories = await getOpportunityCategories(connection, session.user.id);

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { normalizeHandle } from "@/modules/members/domain/choose-handle";
 import { authPool } from "@/server/auth/db";
 import { getFollowStats, listConnections } from "@/server/members/follow-repository";
+import { auth } from "@/auth";
 
 export default async function Connections({
   params, kind,
@@ -13,11 +14,12 @@ export default async function Connections({
   let handle: string;
   try { handle = normalizeHandle((await params).handle); }
   catch { notFound(); }
+  const session = await auth();
   const connection = await authPool().getConnection();
   let members: string[];
   try {
-    if (!await getFollowStats(connection, handle, null)) notFound();
-    members = await listConnections(connection, handle, kind);
+    if (!await getFollowStats(connection, handle, session?.user.id ?? null)) notFound();
+    members = await listConnections(connection, handle, kind, session?.user.id ?? null);
   } finally { connection.release(); }
   const label = kind === "followers" ? "Abonnés" : "Abonnements";
   return <main>

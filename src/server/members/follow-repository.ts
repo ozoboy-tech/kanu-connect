@@ -1,9 +1,11 @@
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { awardActivity } from "@/server/reputation/reputation-repository";
+import { areBlocked, visibleToViewerSql } from "@/server/members/block-repository";
 
 
 interface MemberRow extends RowDataPacket {
   id: number;
+  publicId: string;
 }
 
 interface StatsRow extends RowDataPacket {
@@ -38,8 +40,9 @@ export async function getFollowStats(
        ) AS isFollowing
      FROM member_profiles profile
      JOIN members target ON target.id = profile.member_id
-     WHERE profile.handle = ? LIMIT 1`,
-    [viewerId, handle],
+     WHERE profile.handle = ? AND target.account_status = 'active'
+       AND ${visibleToViewerSql("target.id")} LIMIT 1`,
+    [viewerId, handle, viewerId, viewerId],
   );
   return rows[0] ? {
     followerCount: rows[0].followerCount,
@@ -48,23 +51,31 @@ export async function getFollowStats(
   } : null;
 }
 
-export type FollowMutation = "ok" | "not_found" | "self";
+export type FollowMutation = "ok" | "not_found" | "self" | "blocked";
 
 export async function setFollow(
   connection: PoolConnection, handle: string, viewerId: string, follow: boolean,
 ): Promise<FollowMutation> {
   const [targets] = await connection.execute<MemberRow[]>(
-    `SELECT m.id FROM member_profiles profile
+    `SELECT m.id, m.public_id AS publicId FROM member_profiles profile
      JOIN members m ON m.id = profile.member_id
-     WHERE profile.handle = ? LIMIT 1`, [handle],
+     WHERE profile.handle = ? AND m.account_status = 'active' LIMIT 1`, [handle],
   );
   const [viewers] = await connection.execute<MemberRow[]>(
-    `SELECT id FROM members WHERE public_id = ? LIMIT 1`, [viewerId],
+    `SELECT id, public_id AS publicId FROM members
+     WHERE public_id = ? AND account_status = 'active' LIMIT 1`, [viewerId],
   );
   if (!targets[0] || !viewers[0]) return "not_found";
   if (targets[0].id === viewers[0].id) return "self";
   await connection.beginTransaction();
   try {
+    await connection.execute(
+      "SELECT id FROM members WHERE id IN (?, ?) ORDER BY id FOR UPDATE",
+      [viewers[0].id, targets[0].id],
+    );
+    if (await areBlocked(connection, viewerId, targets[0].publicId)) {
+      await connection.rollback(); return "blocked";
+    }
     if (follow) {
       const [result] = await connection.execute<ResultSetHeader>(
         `INSERT INTO member_follows (follower_id, followed_id, created_at)
@@ -90,6 +101,7 @@ export async function setFollow(
 export async function listConnections(
   connection: PoolConnection, handle: string,
   kind: "followers" | "following",
+  viewerId: string | null = null,
 ): Promise<string[]> {
   const ownerColumn = kind === "followers" ? "followed_id" : "follower_id";
   const peerColumn = kind === "followers" ? "follower_id" : "followed_id";
@@ -97,8 +109,11 @@ export async function listConnections(
     `SELECT peer.handle FROM member_follows f
      JOIN member_profiles owner ON owner.member_id = f.${ownerColumn}
      JOIN member_profiles peer ON peer.member_id = f.${peerColumn}
-     WHERE owner.handle = ?
-     ORDER BY f.created_at DESC, f.${peerColumn} DESC LIMIT 50`, [handle],
+     JOIN members peer_member ON peer_member.id = f.${peerColumn}
+     WHERE owner.handle = ? AND peer_member.account_status = 'active'
+       AND ${visibleToViewerSql("peer_member.id")}
+     ORDER BY f.created_at DESC, f.${peerColumn} DESC LIMIT 50`,
+    [handle, viewerId, viewerId],
   );
   return rows.map((row) => row.handle);
 }

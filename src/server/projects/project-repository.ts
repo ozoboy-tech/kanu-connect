@@ -4,6 +4,7 @@ import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/prom
 import { parseProjectInput, type ProjectInput, type ProjectRole, type ProjectStatus } from "@/modules/projects/domain/project-input";
 import { awardActivity } from "@/server/reputation/reputation-repository";
 import { hiddenSql } from "@/server/reports/report-rules";
+import { visibleToViewerSql } from "@/server/members/block-repository";
 
 interface ProjectRow extends RowDataPacket {
   id: string;
@@ -77,32 +78,37 @@ function present(row: ProjectRow): PublicProject {
 }
 
 export async function getProject(
-  connection: PoolConnection, id: string,
+  connection: PoolConnection, id: string, viewerId: string | null = null,
 ): Promise<PublicProject | null> {
   const [rows] = await connection.execute<ProjectRow[]>(
-    `${projection} WHERE p.public_id = ? LIMIT 1`, [id],
+    `${projection} WHERE p.public_id = ?
+       AND ${visibleToViewerSql("p.member_id")} LIMIT 1`, [id, viewerId, viewerId],
   );
   return rows[0] && !rows[0].hidden
     ? present(rows[0])
     : null;
 }
 
-export async function listProjects(connection: PoolConnection): Promise<PublicProject[]> {
+export async function listProjects(connection: PoolConnection,
+  viewerId: string | null = null): Promise<PublicProject[]> {
   const [rows] = await connection.execute<ProjectRow[]>(
     `${projection} WHERE p.deleted_at IS NULL
+     AND ${visibleToViewerSql("p.member_id")}
      AND NOT ${hiddenSql("project", "p")}
-     ORDER BY p.created_at DESC, p.id DESC LIMIT 20`,
+     ORDER BY p.created_at DESC, p.id DESC LIMIT 20`, [viewerId, viewerId],
   );
   return rows.map(present);
 }
 
 export async function listMemberProjects(
   connection: PoolConnection, handle: string,
+  viewerId: string | null = null,
 ): Promise<PublicProject[]> {
   const [rows] = await connection.execute<ProjectRow[]>(
     `${projection} WHERE profile.handle = ? AND p.deleted_at IS NULL
+     AND ${visibleToViewerSql("p.member_id")}
      AND NOT ${hiddenSql("project", "p")}
-     ORDER BY p.created_at DESC, p.id DESC LIMIT 20`, [handle],
+     ORDER BY p.created_at DESC, p.id DESC LIMIT 20`, [handle, viewerId, viewerId],
   );
   return rows.map(present);
 }

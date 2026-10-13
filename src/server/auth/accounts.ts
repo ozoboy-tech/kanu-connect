@@ -8,6 +8,7 @@ import type {
 import { chooseHandle } from "@/modules/members/domain/choose-handle";
 import { hashPassword, verifyPassword } from "./password";
 import { hashToken } from "./session-store";
+import { reactivateForLogin } from "@/server/accounts/account-repository";
 
 interface MemberRow extends RowDataPacket {
   publicId: string;
@@ -124,7 +125,7 @@ export async function resolveOAuthMember(
     return rows[0]?.publicId;
   };
   const existing = await lookup();
-  if (existing) return existing;
+  if (existing) return await reactivateForLogin(connection, existing) ? existing : "";
 
   await connection.beginTransaction();
   try {
@@ -144,7 +145,7 @@ export async function resolveOAuthMember(
   } catch (error) {
     await connection.rollback();
     const concurrent = await lookup();
-    if (concurrent) return concurrent;
+    if (concurrent) return await reactivateForLogin(connection, concurrent) ? concurrent : "";
     throw error;
   }
 }
@@ -277,7 +278,8 @@ export async function authenticateEmail(
     [email],
   );
   if (!rows[0]?.verifiedAt || !rows[0].passwordHash) return null;
-  return await verifyPassword(password, rows[0].passwordHash)
+  if (!await verifyPassword(password, rows[0].passwordHash)) return null;
+  return await reactivateForLogin(connection, rows[0].publicId)
     ? rows[0].publicId : null;
 }
 

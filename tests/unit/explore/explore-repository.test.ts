@@ -20,7 +20,7 @@ it("retourne seulement les champs publics et garde la saisie dans les paramètre
   }]);
   const [sql, values] = db.execute.mock.calls[0];
   expect(sql).not.toContain(query.q);
-  expect(values).toEqual(["%' OR 1=1 -- !%!_!!%", "%' OR 1=1 -- !%!_!!%"]);
+  expect(values).toEqual([null, null, "%' OR 1=1 -- !%!_!!%", "%' OR 1=1 -- !%!_!!%"]);
 });
 
 it("retire le résultat sentinelle et les données privées des cartes projet", async () => {

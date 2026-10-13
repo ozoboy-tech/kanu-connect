@@ -16,7 +16,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     return failure("Fil invalide.", 400);
   }
   try {
-    const session = feed === "following" ? await auth() : null;
+    const session = await auth();
     if (feed === "following" && !session?.user?.id) {
       return failure("Connexion requise.", 401);
     }
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     try {
       const posts = await listPosts(
         connection, raw as Space | null,
-        feed === "following" ? session!.user.id : null,
+        feed === "following" ? session!.user.id : null, {}, session?.user.id ?? null,
       );
       return Response.json(posts, { headers: { "Cache-Control": "no-store" } });
     } finally { connection.release(); }

@@ -6,6 +6,7 @@ import { recordUsefulActivity } from "@/server/streaks/streak-repository";
 import { refreshSolution } from "@/server/solutions/solution-repository";
 import { hiddenSql } from "@/server/reports/report-rules";
 import { notifyPublication } from "@/server/notifications/community-notifications";
+import { visibleToViewerSql } from "@/server/members/block-repository";
 import {
   opportunityForPost,
   type OpportunityCategory,
@@ -99,10 +100,11 @@ async function loadPost(connection: PoolConnection, row: PostRow): Promise<Publi
 }
 
 export async function getPost(
-  connection: PoolConnection, id: string,
+  connection: PoolConnection, id: string, viewerId: string | null = null,
 ): Promise<PublicPost | null> {
   const [rows] = await connection.execute<PostRow[]>(
-    `${projection} WHERE p.public_id = ? LIMIT 1`, [id],
+    `${projection} WHERE p.public_id = ?
+       AND ${visibleToViewerSql("p.member_id")} LIMIT 1`, [id, viewerId, viewerId],
   );
   return rows[0] && !rows[0].hidden
     ? loadPost(connection, rows[0])
@@ -117,11 +119,13 @@ export async function listPosts(
     category?: OpportunityCategory | null;
     subscribedBy?: string | null;
   } = {},
+  visibilityViewerId: string | null = viewerId,
 ): Promise<PublicPost[]> {
   const followingOnly = viewerId !== null;
 
   const [rows] = await connection.execute<PostRow[]>(
     `${projection} WHERE p.deleted_at IS NULL
+     AND ${visibleToViewerSql("p.member_id")}
      AND NOT ${hiddenSql("post", "p")} AND ${activeOpportunitySql("p")}
      AND (? IS NULL OR EXISTS (
        SELECT 1 FROM post_opportunities opportunity
@@ -142,6 +146,7 @@ export async function listPosts(
      ))` : ""}
      ORDER BY p.created_at DESC, p.id DESC LIMIT 20`,
     [
+      visibilityViewerId, visibilityViewerId,
       filter.category ?? null,
       filter.category ?? null,
       filter.subscribedBy ?? null,

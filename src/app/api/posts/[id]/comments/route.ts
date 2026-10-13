@@ -14,10 +14,11 @@ export async function GET(_request: NextRequest, context: Context): Promise<Resp
   const { id } = await context.params;
   if (!validPostId(id)) return failure("Publication introuvable.", 404);
   try {
+    const session = await auth();
     const connection = await authPool().getConnection();
     try {
-      if (!await getPost(connection, id)) return failure("Publication introuvable.", 404);
-      return Response.json(await listComments(connection, id), {
+      if (!await getPost(connection, id, session?.user.id ?? null)) return failure("Publication introuvable.", 404);
+      return Response.json(await listComments(connection, id, session?.user.id ?? null), {
         headers: { "Cache-Control": "no-store" },
       });
     } finally { connection.release(); }

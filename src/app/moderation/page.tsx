@@ -5,7 +5,7 @@ import {
 
 import { auth } from "@/auth";
 import { authPool } from "@/server/auth/db";
-import { isModerator } from
+import { canModerate } from
   "@/server/moderation/moderator";
 import { listModerationQueue } from
   "@/server/moderation/moderation-repository";
@@ -18,13 +18,10 @@ export default async function ModerationPage() {
     redirect("/api/auth/signin");
   }
 
-  if (!isModerator(session.user.id)) {
-    notFound();
-  }
-
   const connection = await authPool().getConnection();
 
   try {
+    if (!await canModerate(connection, session.user.id)) notFound();
     const items = await listModerationQueue(
       connection,
       session.user.id,
@@ -35,7 +32,8 @@ export default async function ModerationPage() {
       <h1>Modération</h1>
       <p>
         Signalements récents, limités aux
-        50 derniers contenus.
+        50 derniers contenus. Les modérateurs masquent provisoirement ;
+        les administrateurs prennent la décision finale.
       </p>
       <ModerationQueue items={items} />
     </main>;

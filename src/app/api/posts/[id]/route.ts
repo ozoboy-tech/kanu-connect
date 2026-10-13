@@ -19,9 +19,10 @@ export async function GET(_request: NextRequest, context: Context): Promise<Resp
   const { id } = await context.params;
   if (!validPostId(id)) return failure("Publication introuvable.", 404);
   try {
+    const session = await auth();
     const connection = await authPool().getConnection();
     try {
-      const post = await getPost(connection, id);
+      const post = await getPost(connection, id, session?.user.id ?? null);
       return post
         ? Response.json(post, { headers: { "Cache-Control": "no-store" } })
         : failure("Publication introuvable.", 404);

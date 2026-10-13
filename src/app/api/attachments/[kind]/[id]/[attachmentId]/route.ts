@@ -12,9 +12,11 @@ export async function GET(request: NextRequest, context: Context): Promise<Respo
     const { kind: raw, id, attachmentId } = await context.params;
     const kind = parseAttachmentKind(raw);
     if (!validPostId(id) || !validPostId(attachmentId)) return failure("Fichier introuvable.", 404);
+    const session = await auth();
     const connection = await authPool().getConnection();
     try {
-      const file = await getAttachment(connection, kind, id, attachmentId);
+      const file = await getAttachment(connection, kind, id, attachmentId,
+        session?.user.id ?? null);
       if (!file) return failure("Fichier introuvable.", 404);
       const inline = file.mimeType.startsWith("image/") && request.nextUrl.searchParams.get("view") === "1";
       return new Response(new Uint8Array(file.data), { headers: {

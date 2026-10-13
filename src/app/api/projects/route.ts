@@ -8,9 +8,10 @@ import { createProject, listProjects } from "@/server/projects/project-repositor
 
 export async function GET(): Promise<Response> {
   try {
+    const session = await auth();
     const connection = await authPool().getConnection();
     try {
-      return Response.json(await listProjects(connection), {
+      return Response.json(await listProjects(connection, session?.user.id ?? null), {
         headers: { "Cache-Control": "no-store" },
       });
     } finally { connection.release(); }

@@ -42,6 +42,7 @@ async function change(
       const result = await setFollow(connection, handle, session.user.id, follow);
       if (result === "not_found") return failure("Profil introuvable.", 404);
       if (result === "self") return failure("Impossible de s’abonner à soi-même.", 403);
+      if (result === "blocked") return failure("Interaction indisponible.", 403);
       const stats = await getFollowStats(connection, handle, session.user.id);
       return stats ? Response.json(stats, { headers: { "Cache-Control": "no-store" } })
         : failure("Profil introuvable.", 404);

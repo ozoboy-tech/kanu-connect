@@ -10,21 +10,17 @@ import ProjectActions from "./project-actions";
 import ProjectCollaboration from "./project-collaboration";
 import AttachmentPanel from "@/app/components/attachment-panel";
 import BookmarkButton from "@/app/components/bookmark-button";
-
-
-
-
 export default async function ProjectPage({ params }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
   if (!validPostId(id)) notFound();
+  const session = await auth();
   const connection = await authPool().getConnection();
   let project;
-  try { project = await getProject(connection, id); }
+  try { project = await getProject(connection, id, session?.user.id ?? null); }
   finally { connection.release(); }
   if (!project) notFound();
-  const session = await auth();
   return <main>
     <p><a href="/projects">Retour aux projets</a></p>
     <h1>{project.title}</h1>
