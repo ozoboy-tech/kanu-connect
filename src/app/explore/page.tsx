@@ -4,6 +4,8 @@ import { kinds, spaces, kindLabels, spaceLabels } from "@/modules/posts/domain/p
 import { authPool } from "@/server/auth/db";
 import { searchExplore, type ExploreResult } from "@/server/explore/explore-repository";
 import { auth } from "@/auth";
+import { MemberCard, ProjectCard, PublicationCard } from "@/app/components/content-card";
+import { EmptyState, PageHeading, Pagination } from "@/app/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -37,19 +39,19 @@ export default async function ExplorePage({ searchParams }: {
     kind, q: query.q, skill: "", location: "", technology: "", status: "", page: 1,
   });
   return <main>
-    <p><a href="/">Accueil</a> · <a href="/feed">Publications</a> · <a href="/projects">Projets</a></p>
-    <h1>Explorer</h1>
-    <nav aria-label="Type de recherche">
-      {(["posts", "members", "projects"] as const).map((kind) => <span key={kind}>
-        <a href={tabHref(kind)} aria-current={query.kind === kind ? "page" : undefined}>
+    <PageHeading title="Explorer" description="Trouve une réponse, un projet ou les personnes avec qui construire." />
+    <nav className="tabs" aria-label="Type de recherche">
+      {(["posts", "members", "projects"] as const).map((kind) =>
+        <a key={kind} href={tabHref(kind)} aria-current={query.kind === kind ? "page" : undefined}>
           {{ posts: "Publications", members: "Membres", projects: "Projets" }[kind]}
-        </a>{" · "}
-      </span>)}
+        </a>)}
     </nav>
-    <form action="/explore" method="get" key={exploreHref(query)}>
+    <form className="filter-panel" action="/explore" method="get" key={exploreHref(query)}>
       <input type="hidden" name="kind" value={query.kind} />
-      <p><label>Rechercher <input name="q" maxLength={120} defaultValue={query.q}
+      <p><label>Rechercher <input type="search" name="q" maxLength={120} defaultValue={query.q}
         placeholder={query.kind === "members" ? "Pseudo ou bio" : "Titre, texte ou mots-clés"} /></label></p>
+      <details className="advanced-filters" open={!!(query.space || query.type || query.keyword || query.skill || query.location || query.technology || query.status || (query.sort && query.sort !== "recent"))}>
+        <summary>Affiner les résultats</summary><div className="filter-grid">
       {query.kind === "members" && <>
         <p><label>Compétence exacte <input name="skill" maxLength={64} defaultValue={query.skill} /></label></p>
         <p><label>Localisation <input name="location" maxLength={120} defaultValue={query.location} /></label></p>
@@ -74,28 +76,22 @@ export default async function ExplorePage({ searchParams }: {
         <option value="recent">Récent</option><option value="popular">Populaire sur 7 jours</option>
         {query.kind === "posts" && <option value="unanswered">Questions sans réponse</option>}
       </select></label></p>}
-      <button type="submit">Rechercher</button>{" "}<a href={`/explore?kind=${query.kind}`}>Réinitialiser</a>
+      </div>{query.kind === "posts" && <p className="result-summary">Les filtres se cumulent. Pour « Sans réponse », choisis tous les types ou les questions.</p>}
+      </details><div className="filter-actions"><button type="submit">Rechercher</button>
+        <a href={`/explore?kind=${query.kind}`}>Réinitialiser</a></div>
     </form>
-    <p>Les filtres se cumulent. Pour « Sans réponse », choisis tous les types ou les questions.</p>
-    <p>Page {result.page} · {result.items.length} résultat(s).</p>
-    {!result.items.length && <p>Aucun résultat pour ces critères.</p>}
-    {result.kind === "members" && <ul>{result.items.map((member) => <li key={member.publicId}>
-      <h2><a href={`/u/${member.handle}`}>@{member.handle}</a></h2>
-      {member.bio && <p>{member.bio}</p>}{member.location && <p>{member.location}</p>}
-      <p>{member.skills.join(", ")}</p>
+    <p className="result-summary">Page {result.page} · {result.items.length} résultat(s).</p>
+    {!result.items.length && <EmptyState title="Aucun résultat pour ces critères."
+      href={`/explore?kind=${query.kind}`} action="Réinitialiser les filtres">Essaie un autre mot ou élargis les filtres.</EmptyState>}
+    {result.kind === "members" && <ul className="card-list card-grid">{result.items.map((member) => <li key={member.publicId}>
+      <MemberCard member={member} />
     </li>)}</ul>}
-    {result.kind === "projects" && <ul>{result.items.map((project) => <li key={project.id}>
-      <h2><a href={`/projects/${project.id}`}>{project.title}</a></h2><p>{project.summary}</p>
-      <p>{projectLabels[project.status]} · {project.technologies.join(", ")} · <a href={`/u/${project.authorHandle}`}>@{project.authorHandle}</a></p>
+    {result.kind === "projects" && <ul className="card-list card-grid">{result.items.map((project) => <li key={project.id}>
+      <ProjectCard project={project} />
     </li>)}</ul>}
-    {result.kind === "posts" && <ul>{result.items.map((post) => <li key={post.id}>
-      <h2><a href={`/posts/${post.id}`}>{post.title}</a></h2><p>{post.excerpt}</p>
-      <p>{spaceLabels[post.space]} · {kindLabels[post.kind]} · <a href={`/u/${post.authorHandle}`}>@{post.authorHandle}</a>
-        {" · "}{post.votes7Days} vote(s) sur 7 jours</p>
+    {result.kind === "posts" && <ul className="card-list">{result.items.map((post) => <li key={post.id}>
+      <PublicationCard post={post} />
     </li>)}</ul>}
-    <nav aria-label="Pagination">
-      {query.page > 1 && <a href={exploreHref(query, query.page - 1)}>Page précédente</a>}{" "}
-      {result.hasNext && <a href={exploreHref(query, query.page + 1)}>Page suivante</a>}
-    </nav>
+    <Pagination page={query.page} hasNext={result.hasNext} href={(page) => exploreHref(query, page)} />
   </main>;
 }

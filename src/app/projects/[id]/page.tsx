@@ -10,6 +10,7 @@ import ProjectActions from "./project-actions";
 import ProjectCollaboration from "./project-collaboration";
 import AttachmentPanel from "@/app/components/attachment-panel";
 import BookmarkButton from "@/app/components/bookmark-button";
+import { Avatar } from "@/app/components/ui";
 export default async function ProjectPage({ params }: {
   params: Promise<{ id: string }>;
 }) {
@@ -22,16 +23,18 @@ export default async function ProjectPage({ params }: {
   finally { connection.release(); }
   if (!project) notFound();
   return <main>
-    <p><a href="/projects">Retour aux projets</a></p>
-    <h1>{project.title}</h1>
+    <a className="back-link" href="/projects">← Retour aux projets</a>
+    <header className="detail-heading"><h1>{project.title}</h1>
+      {!project.deleted && <div className="card-meta">{project.authorHandle && <a className="identity" href={`/u/${project.authorHandle}`}>
+        <Avatar handle={project.authorHandle} /><strong>@{project.authorHandle}</strong></a>}
+        <span className="tag">{labels[project.status!]}</span></div>}
+    </header>
     {!project.deleted && <>
-      <p>Par <a href={`/u/${project.authorHandle}`}>@{project.authorHandle}</a></p>
       <BookmarkButton kind="project" id={project.id} canSave={!!session?.user.onboarded} />
-      <p>Avancement : {labels[project.status!]}</p>
-      <p>{project.summary}</p>
-      <p style={{ whiteSpace: "pre-wrap" }}>{project.description}</p>
+      <p className="profile-bio">{project.summary}</p>
+      <p className="detail-body">{project.description}</p>
       <h2>Technologies</h2>
-      <ul>{project.technologies.map((item) => <li key={item}>{item}</li>)}</ul>
+      <ul className="tag-list">{project.technologies.map((item) => <li key={item}>{item}</li>)}</ul>
       <h2>Rôles recherchés</h2>
       {project.roles.length === 0 && <p>Aucun rôle précisé.</p>}
       <ul>{project.roles.map((role) => <li key={role.label}>{role.label} · {role.filled ? "Pourvu" : "À pourvoir"}</li>)}</ul>

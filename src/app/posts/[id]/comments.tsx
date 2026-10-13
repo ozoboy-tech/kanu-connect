@@ -148,7 +148,7 @@ export default function Comments({
     return (children.get(parentId) ?? []).map((item) => {
       const mayEdit = !item.deleted && viewerId === item.authorId &&
         Date.now() - new Date(item.createdAt).getTime() < 15 * 60_000;
-      return <li key={item.id}>
+      return <li key={item.id} className={solution?.commentId === item.id && !item.deleted ? "solution-comment" : undefined}>
         <p>{item.deleted ? "Contenu supprimé" : <>
           <a href={`/u/${item.authorHandle}`}>@{item.authorHandle}</a> :{" "}
           <span style={{ whiteSpace: "pre-wrap" }}>{item.body}</span>
@@ -172,7 +172,7 @@ export default function Comments({
           }} />}
         {!item.deleted && solution?.commentId === item.id &&
 
-          <strong> Solution de la communauté · {solution.votes} votes</strong>}
+          <strong className="solution-label">✓ Solution de la communauté · {solution.votes} votes</strong>}
 
         {canWrite && item.depth < 4 &&
           <button type="button" onClick={() => setReplyTo(item.id)}>Répondre</button>}
@@ -183,7 +183,7 @@ export default function Comments({
           <button type="button" onClick={() => void remove(item.id)}>Supprimer</button>
         </>}
         {editing === item.id && <div>
-          <textarea value={editBody} maxLength={2000}
+          <textarea aria-label="Modifier le commentaire" value={editBody} maxLength={2000}
             onChange={(event) => setEditBody(event.target.value)} />
           <button type="button" onClick={() => void saveEdit(item.id)}>Enregistrer</button>
           <button type="button" onClick={() => setEditing(null)}>Annuler</button>
