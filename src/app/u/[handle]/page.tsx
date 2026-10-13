@@ -9,6 +9,7 @@ import { getReputation } from "@/server/reputation/reputation-repository";
 import { getPublicStreak } from "@/server/streaks/streak-repository";
 import FollowPanel from "./follow-panel";
 import { publicTopics } from "@/server/discovery/preferences-repository";
+import BlockPanel from "./block-panel";
 export default async function PublicProfilePage({
   params,
 }: { params: Promise<{ handle: string }> }) {
@@ -18,7 +19,7 @@ export default async function PublicProfilePage({
   const session = await auth();
   const connection = await authPool().getConnection();
   try {
-    const profile = await getPublicProfile(connection, handle);
+    const profile = await getPublicProfile(connection, handle, session?.user.id ?? null);
     if (!profile) notFound();
     const topics = await publicTopics(connection, handle);
 const projects = await listMemberProjects(connection, handle);
@@ -33,6 +34,8 @@ const projects = await listMemberProjects(connection, handle);
       <p>{topics.join(", ") || "Aucune catégorie précisée."}</p>
       <FollowPanel handle={profile.handle} initial={stats}
         canFollow={!!session?.user.onboarded && session.user.id !== profile.publicId} />
+      {session?.user.onboarded && session.user.id !== profile.publicId &&
+        <BlockPanel handle={profile.handle} />}
       {!session?.user.id && <p><a href="/api/auth/signin">Connecte-toi</a>
         {" pour suivre ce membre."}</p>}
       {session?.user.id && !session.user.onboarded &&
