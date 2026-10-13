@@ -66,3 +66,86 @@ npm run build
 ```
 
 Le test d'intégration `member-auth.test.ts` crée des comptes aléatoires dans `kanuconnecttest`, puis les supprime. Il vérifie la validation de l'e-mail, l'isolation OAuth, le rattachement explicite, l'expiration des sessions, le changement de mot de passe et la révocation. Le parcours SMTP et les consentements Google/GitHub/GitLab nécessitent un serveur SMTP et des identifiants de fournisseur réels pour une vérification manuelle.
+````
+
+Le remplacer par :
+
+````markdown
+# Authentification Kanu Connect
+
+## Fonctionnement retenu
+
+- E-mail/mot de passe : nom légal privé et pseudo public unique ; pseudo généré si omis ; adresse vérifiée avant connexion.
+- Google, GitHub et GitLab : activation conditionnelle aux deux variables du fournisseur ; identité externe séparée tant qu'un membre connecté n'a pas demandé un rattachement explicite.
+- Première connexion OAuth : nom légal et pseudo sur `/onboarding`, puis accueil personnalisable sur `/welcome`.
+- Sessions : 7 jours maximum sans activité, 30 jours maximum depuis la création ; révocation à la déconnexion, au reset et aux actions de compte prévues.
+- Auth.js gère OAuth et le cookie JWT ; MySQL conserve les sessions révocables et les jetons hachés.
+
+## Origine locale unique
+
+Utiliser **http://localhost:3000** sur les deux PC :
+
+```powershell
+.\scripts\run-auth-dev.ps1 -Target dev
+```
+
+Le lanceur charge `app-dev.xml`, la clé Auth.js locale et les fichiers optionnels d'administration depuis `%APPDATA%\KanuConnect`. Voir [windows-local.md](windows-local.md). Il ne redemande pas les mots de passe enregistrés.
+
+Le mode console des e-mails exige simultanément `KANU_DEV_MAIL_TO_CONSOLE=1`, `KANU_DATABASE_NAME=kanuconnectdev`, `NODE_ENV=development` et l'origine locale sur le port 3000. Le serveur accepte aussi l'origine historique `http://127.0.0.1:3000` pour ce mode, mais le lanceur, la recette et les callbacks utilisent localhost.
+
+Les liens affichés dans le terminal servent à la recette locale. Le mode console n'est jamais actif en production, dans la base de test ou sur un hôte distant.
+
+## SMTP réel
+
+Variables du processus serveur : `KANU_SMTP_HOST`, `KANU_SMTP_PORT`, `KANU_SMTP_USER`, `KANU_SMTP_PASSWORD`, `KANU_SMTP_FROM`. Le port 465 utilise le TLS implicite ; les autres ports utilisent les capacités STARTTLS du transport. Garder les credentials SMTP hors Git.
+
+Sans SMTP et hors mode console local autorisé, les demandes d'envoi ne peuvent pas être annoncées comme réussies. Pour la recette SMTP, configurer ces variables dans le terminal puis lancer :
+
+```powershell
+.\scripts\run-auth-dev.ps1 -Target dev -MailMode smtp
+```
+
+Vérifier réellement réception, destinataire et lien. Ce mode désactive l'affichage des liens dans la console pour ce lancement.
+
+## Fournisseurs OAuth
+
+| Fournisseur | Variables serveur | Callback local |
+|---|---|---|
+| Google | `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | `http://localhost:3000/api/auth/callback/google` |
+| GitHub | `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` | `http://localhost:3000/api/auth/callback/github` |
+| GitLab | `AUTH_GITLAB_ID`, `AUTH_GITLAB_SECRET` | `http://localhost:3000/api/auth/callback/gitlab` |
+
+Redémarrer le lanceur après configuration. Une absence de fournisseur doit être notée « Non configuré » dans la recette, jamais « testé ».
+
+## API et protections
+
+Les mutations applicatives exigent une origine correspondant à `AUTH_URL` et un corps JSON, sauf le point d'entrée de rattachement qui n'attend pas de corps.
+
+| Action | Route | Entrée |
+|---|---|---|
+| Inscription | `POST /api/register` | `email`, `password`, `legalName`, `handle` facultatif |
+| Nouveau lien | `POST /api/auth/email-token` | `email`, `purpose: verify/reset` |
+| Vérification | `GET /api/auth/verify-email?token=…` | Lien à usage unique |
+| Nouveau mot de passe | `POST /api/auth/reset-password` | `token`, `password` |
+| Connexion/déconnexion | `/api/auth/signin`, `/api/auth/signout` | Formulaires Auth.js/CSRF |
+| Onboarding | `POST /api/auth/onboard` | `legalName`, `handle` facultatif |
+| Rattachement explicite | `POST /api/auth/link/[provider]` | Session complète ; poursuivre dans le même navigateur |
+
+Pour tester le rattachement d'un fournisseur configuré depuis une session complète, dans la console du navigateur de localhost :
+
+```js
+fetch('/api/auth/link/github', { method: 'POST' })
+  .then(async (response) => {
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error ?? 'Rattachement impossible.');
+    window.location.assign(data.signInUrl);
+  });
+```
+
+Remplacer uniquement le fournisseur par `google` ou `gitlab` selon la configuration. Une identité ayant déjà un propriétaire ne peut pas être rattachée à un autre membre ; les comptes ne sont pas fusionnés automatiquement.
+
+Les formulaires d'inscription, onboarding, renvoi et réinitialisation affichent les refus du serveur et les pannes réseau, désactivent la soumission pendant l'envoi et permettent de réessayer sans effacer la saisie.
+
+## Vérification
+
+`npm run check:phase3` exécute les suites techniques ; `member-auth.test.ts` vérifie inscription, vérification, reset, expiration, révocation et rattachement avec les identités de test. Les consentements OAuth et la livraison SMTP réels nécessitent aussi les parcours configurés dans [phase3-recette.md](phase3-recette.md).

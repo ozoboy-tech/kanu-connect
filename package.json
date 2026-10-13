@@ -10,7 +10,8 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:integration": "vitest run --config vitest.integration.config.mts"
+    "test:integration": "vitest run --config vitest.integration.config.mts",
+    "check:phase3": "powershell.exe -NoProfile -File scripts/run-phase3-checks.ps1"
   },
   "dependencies": {
     "drizzle-orm": "0.45.3",

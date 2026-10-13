@@ -23,7 +23,7 @@ export async function sendAuthMail(
     process.env.KANU_DEV_MAIL_TO_CONSOLE === "1" &&
     process.env.KANU_DATABASE_NAME === "kanuconnectdev" &&
     process.env.NODE_ENV === "development" &&
-    new URL(base).origin === "http://127.0.0.1:3000"
+    ["http://localhost:3000", "http://127.0.0.1:3000"].includes(new URL(base).origin)
   ) {
     console.info(
       `Lien local ${
