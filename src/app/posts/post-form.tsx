@@ -27,6 +27,7 @@ export default function PostForm({
   startAsOpportunity?: boolean;
 }) {
   const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
   const [kind, setKind] = useState(
     initial?.kind ?? (startAsOpportunity ? "opportunity" : "question"),
   );
@@ -53,6 +54,7 @@ export default function PostForm({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy) return;
     setMessage("");
 
     const form = new FormData(event.currentTarget);
@@ -86,6 +88,7 @@ export default function PostForm({
       } : null,
     };
 
+    setBusy(true);
     try {
       const response = await fetch(
         initial ? `/api/posts/${initial.id}` : "/api/posts",
@@ -106,10 +109,12 @@ export default function PostForm({
       window.location.assign(`/posts/${result.id}`);
     } catch {
       setMessage("Connexion impossible. Réessaie.");
-    }
+    } finally { setBusy(false); }
   }
 
-  return <form onSubmit={submit}>
+  return <form className="editor-form" onSubmit={submit} aria-busy={busy}>
+    <p className="form-intro">Donne du contexte et un titre précis. Une publication claire reçoit des réponses plus utiles.</p>
+    <fieldset className="editor-fields" disabled={busy}>
     <p><label>Type<br />
       <select name="kind" value={kind}
         onChange={(event) => setKind(event.target.value)}>
@@ -117,6 +122,8 @@ export default function PostForm({
           <option key={value} value={value}>{label}</option>)}
       </select>
     </label></p>
+
+    {kind === "project" && <p>Pour une fiche projet avec avancement et équipe, utilise plutôt <a href="/projects/new">Présenter un projet</a>.</p>}
 
     <p><label>Espace<br />
       <select name="space"
@@ -187,7 +194,9 @@ export default function PostForm({
     </label></p>
 
     <p>Après publication, tu peux ajouter des images ou des documents depuis sa page pendant quinze minutes.</p>
-    <button type="submit">{initial ? "Enregistrer" : "Publier"}</button>
+    <div className="form-footer"><button type="submit" disabled={busy}>{busy ? "Enregistrement…" : initial ? "Enregistrer" : "Publier"}</button>
+      <a href={initial ? `/posts/${initial.id}` : "/create"}>Annuler</a></div>
+    </fieldset>
     <p role="status">{message}</p>
   </form>;
 }

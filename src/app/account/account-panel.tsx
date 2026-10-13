@@ -64,8 +64,8 @@ export default function AccountPanel() {
           Désactiver mon compte</button>
       </section>
       <section><h2>Supprimer définitivement</h2>
-        <p>Action irréversible : identifiants et données privées effacés ;
-          les publications deviennent des tombstones afin de conserver les réponses.</p>
+        <p>Action irréversible : tes identifiants et tes données privées sont effacés.
+          Tes publications sont retirées ; les réponses des autres membres sont conservées.</p>
         <p><label>Écris SUPPRIMER MON COMPTE<br />
           <input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} />
         </label></p>

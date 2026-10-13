@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { NotificationFilter, NotificationPage } from "@/modules/notifications/domain/notification-input";
+import { Avatar, EmptyState } from "@/app/components/ui";
 
 const labels = {
   request: "a envoyé une demande de collaboration",
@@ -12,7 +13,6 @@ const labels = {
   reply: "t’a répondu",
   mention: "t’a mentionné dans un contenu",
   solution: "a obtenu une solution",
-
 };
 
 const filters: { id: NotificationFilter; label: string }[] = [
@@ -31,6 +31,9 @@ export default function NotificationsInbox({ initialPage, filter }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const endpoint = "/api/notifications";
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("kanu:notifications-changed", { detail: data?.unreadCount ?? 0 }));
+  }, [data?.unreadCount]);
 
   async function check(response: Response) {
     const body = await response.json();
@@ -88,23 +91,25 @@ export default function NotificationsInbox({ initialPage, filter }: {
     } finally { window.location.assign(href); }
   }
 
-  return <section aria-label="Notifications" aria-busy={busy}>
-    <nav aria-label="Filtrer les notifications">{filters.map(({ id, label }) => <span key={id}>
-      <a href={id === "all" ? "/notifications" : `/notifications?filter=${id}`}
-        aria-current={filter === id ? "page" : undefined}>{label}</a>{" · "}
-    </span>)}</nav>
-    <p><a href="/preferences">Modifier mes préférences de notifications</a></p>
+  return <section className="notification-inbox" aria-label="Notifications" aria-busy={busy}>
+    <nav className="tabs" aria-label="Filtrer les notifications">{filters.map(({ id, label }) =>
+      <a key={id} href={id === "all" ? "/notifications" : `/notifications?filter=${id}`}
+        aria-current={filter === id ? "page" : undefined}>{label}</a>)}</nav>
     {error && <p role="alert">{error}</p>}
-    <button type="button" disabled={busy} onClick={() => void load()}>Actualiser</button>
+    <div className="notification-toolbar"><p className="result-summary">Les nouvelles notifications apparaissent après actualisation.</p>
+      <button type="button" disabled={busy} onClick={() => void load()}>Actualiser</button></div>
     {busy && <p role="status">Chargement…</p>}
     {data && <>
       <p aria-live="polite">Notifications non lues : {data.unreadCount}</p>
-      {data.notifications.length === 0 && <p>Aucune notification pour le moment.</p>}
-      <ul>{data.notifications.map((item) => <li key={item.id}>
-        <p><strong>{item.readAt ? "Lue" : "Non lue"}</strong>{" — "}
+      {data.notifications.length === 0 && <EmptyState title="Aucune notification dans cette vue."
+        href="/feed" action="Retrouver la communauté">Les réponses et les échanges qui te concernent apparaîtront ici.</EmptyState>}
+      <ul className="notification-list">{data.notifications.map((item) => <li key={item.id}
+        className={`notification-item${item.readAt ? "" : " is-unread"}`}>
+        <Avatar handle={item.actorHandle} /><div>
+        <p><strong>@{item.actorHandle}</strong><span className="tag">{item.readAt ? "Lue" : "Non lue"}</span>{" — "}
           {item.kind === "solution"
             ? <>Ta réponse à la question de @{item.actorHandle} est devenue la solution.</>
-            : <>@{item.actorHandle} {labels[item.kind]}.</>}</p>
+            : <>{labels[item.kind]}.</>}</p>
         <p>{(() => {
           const href = "projectId" in item
             ? `/projects/${item.projectId}${item.kind === "discussion" ? "/discussion" : ""}`
@@ -120,7 +125,7 @@ export default function NotificationsInbox({ initialPage, filter }: {
         </time></p>
         {!item.readAt && <button type="button" disabled={busy}
           onClick={() => void markRead(item.id)}>Marquer comme lue</button>}
-      </li>)}</ul>
+        </div></li>)}</ul>
       {data.nextCursor && <button type="button" disabled={busy}
         onClick={() => void load(true)}>Afficher les notifications précédentes</button>}
     </>}
