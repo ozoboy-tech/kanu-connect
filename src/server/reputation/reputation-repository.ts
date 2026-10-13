@@ -3,6 +3,7 @@ import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/prom
 import { calculateAwardedPoints } from "@/modules/reputation/domain/calculate-awarded-points";
 import { ACTION_POINTS, badgesForPoints, type ReputationAction } from
   "@/modules/reputation/domain/reputation-rules";
+import { visibleToViewerSql } from "@/server/members/block-repository";
 
 interface DayRow extends RowDataPacket { points: number }
 interface ScoreRow extends RowDataPacket { points: number | string }
@@ -79,7 +80,7 @@ export async function getReputation(
 }
 
 export async function listLeaderboard(
-  connection: PoolConnection, period: "all" | "week",
+  connection: PoolConnection, period: "all" | "week", viewerId: string | null = null,
 ): Promise<{ handle: string; points: number; votes: number }[]> {
   const filter = period === "week"
     ? "AND e.awarded_at >= UTC_TIMESTAMP(3) - INTERVAL 7 DAY" : "";
@@ -109,10 +110,13 @@ export async function listLeaderboard(
           AND project.deleted_at IS NULL
           AND v.active = 1 ${voteFilter}) AS votes
      FROM member_profiles p
+     JOIN members m ON m.id = p.member_id
      LEFT JOIN member_reputation_events e
        ON e.member_id = p.member_id ${filter}
+     WHERE m.account_status = 'active' AND ${visibleToViewerSql("m.id")}
      GROUP BY p.member_id, p.handle
      ORDER BY points DESC, votes DESC, p.handle ASC LIMIT 50`,
+    [viewerId, viewerId],
   );
   return rows.map((row) => ({
     handle: row.handle,

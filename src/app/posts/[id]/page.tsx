@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { auth } from "@/auth";
-import { validPostId } from "@/modules/posts/domain/post-input";
+import { validPostId, kindLabels, spaceLabels, type Kind, type Space } from "@/modules/posts/domain/post-input";
+import { Avatar } from "@/app/components/ui";
 import { authPool } from "@/server/auth/db";
 import { getPost } from "@/server/posts/post-repository";
 import VoteButton from "@/app/components/vote-button";
@@ -25,12 +26,16 @@ export default async function PostPage({ params }: {
   const mayEdit = !post.deleted && session?.user.id === post.authorId &&
     Date.now() - new Date(post.createdAt).getTime() < 15 * 60_000;
   return <main>
-    <p><a href="/feed">Retour aux publications</a></p>
-    <h1>{post.title}</h1>
+    <a className="back-link" href="/feed">← Retour aux publications</a>
+    <header className="detail-heading"><h1>{post.title}</h1>
+      {!post.deleted && <div className="card-meta">{post.authorHandle && <a className="identity" href={`/u/${post.authorHandle}`}>
+        <Avatar handle={post.authorHandle} /><span><strong>@{post.authorHandle}</strong>
+          <small><time dateTime={new Date(post.createdAt).toISOString()}>{new Date(post.createdAt).toISOString().slice(0, 10)}</time></small></span></a>}
+        <span className="tag">{kindLabels[post.kind as Kind] ?? post.kind}</span></div>}
+    </header>
     {!post.deleted && <>
-      <p>Par <a href={`/u/${post.authorHandle}`}>@{post.authorHandle}</a></p>
       <BookmarkButton kind="post" id={post.id} canSave={!!session?.user.onboarded} />
-      <p>Espace : {post.space} · Type : {post.kind}</p>
+      <p className="result-summary">{spaceLabels[post.space as Space] ?? post.space}</p>
 
       {post.kind === "opportunity" && <section>
         <h2>Opportunité</h2>
@@ -56,11 +61,11 @@ export default async function PostPage({ params }: {
         </p>}
       </section>}
 
-      <p style={{ whiteSpace: "pre-wrap" }}>{post.body}</p>
+      <p className="detail-body">{post.body}</p>
       <AttachmentPanel kind="post" id={post.id} canEdit={mayEdit && !!session?.user.onboarded} />
       {post.code && <section><h2>Code ({post.codeLanguage})</h2>
         <pre><code>{post.code}</code></pre></section>}
-          <p>Mots-clés : {post.keywords.join(", ")}</p>
+      <ul className="tag-list" aria-label="Mots-clés">{post.keywords.map((keyword) => <li key={keyword}>#{keyword}</li>)}</ul>
       <VoteButton kind="post" id={post.id}
         viewerId={session?.user.id ?? null}
         authorId={post.authorId}

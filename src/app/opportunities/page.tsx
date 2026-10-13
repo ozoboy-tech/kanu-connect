@@ -9,6 +9,7 @@ import { authPool } from "@/server/auth/db";
 import { getOpportunityCategories } from "@/server/opportunities/opportunity-repository";
 import { listPosts } from "@/server/posts/post-repository";
 import CategoryPreferences from "./category-preferences";
+import { Avatar, EmptyState, PageHeading } from "@/app/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -52,14 +53,9 @@ export default async function OpportunitiesPage({ searchParams }: {
   }
 
   return <main>
-    <p><a href="/">Accueil</a> · <a href="/feed">Publications</a></p>
-    <h1>Opportunités</h1>
-
-    <p>
-      <a href="/posts/new?kind=opportunity">Publier une opportunité</a>
-    </p>
-
-    <form method="get">
+    <PageHeading title="Opportunités" description="Des pistes pour apprendre, travailler et relever de nouveaux défis."
+      action={<a className="button" href="/posts/new?kind=opportunity">Partager une opportunité</a>} />
+    <form className="filter-panel" method="get">
       <p><label>
         Catégorie{" "}
         <select name="category" defaultValue={category ?? ""}>
@@ -69,7 +65,6 @@ export default async function OpportunitiesPage({ searchParams }: {
           </option>)}
         </select>
       </label></p>
-
       <p><label>
         <input
           type="checkbox"
@@ -83,19 +78,24 @@ export default async function OpportunitiesPage({ searchParams }: {
       <button type="submit">Filtrer</button>
     </form>
 
-    <p>Les opportunités expirées sont archivées et retirées de cette liste.</p>
+    <p className="result-summary">Les opportunités expirées sont archivées et retirées de cette liste.</p>
 
-    {posts.length === 0 && <p>Aucune opportunité active pour ces filtres.</p>}
+    {posts.length === 0 && <EmptyState title="Aucune opportunité active pour ces filtres."
+      href="/opportunities" action="Voir toutes les catégories" />}
 
-    <ul>{posts.map((post) => <li key={post.id}>
-      <a href={`/posts/${post.id}`}>{post.title}</a>{" — "}
-      <a href={`/u/${post.authorHandle}`}>@{post.authorHandle}</a>
+    <ul className="card-list">{posts.map((post) => <li key={post.id}><article className="content-card">
+      <div className="card-meta">{post.authorHandle && <a className="identity" href={`/u/${post.authorHandle}`}>
+        <Avatar handle={post.authorHandle} /><strong>@{post.authorHandle}</strong></a>}
+        <span className="tag">Opportunité</span></div>
+      <h2><a href={`/posts/${post.id}`}>{post.title}</a></h2>
+      <p className="card-excerpt">{post.body}</p>
 
       {post.opportunity && <p>
         {opportunityLabels[post.opportunity.category]} · Date limite :{" "}
         {post.opportunity.deadline.slice(0, 16).replace("T", " ")} UTC
       </p>}
-    </li>)}</ul>
+      <div className="card-footer"><a className="text-link" href={`/posts/${post.id}`}>Voir les détails et la candidature →</a></div>
+    </article></li>)}</ul>
 
     {session && <CategoryPreferences initial={categories} />}
 

@@ -5,6 +5,7 @@ import { expect, it } from "vitest";
 import { registerEmail } from "@/server/auth/accounts";
 import { createComment } from "@/server/comments/comment-repository";
 import { setFollow } from "@/server/members/follow-repository";
+import { setBlock } from "@/server/members/block-repository";
 import { createPost } from "@/server/posts/post-repository";
 import { createProject } from "@/server/projects/project-repository";
 import { awardActivity, getReputation, listLeaderboard } from
@@ -84,9 +85,21 @@ it("attribue une seule fois les points, plafonne la journée et affiche les badg
     expect((await listLeaderboard(connection, "week"))[0]).toEqual({
       handle: author.handle, points: 50, votes: 0,
     });
+    await connection.execute("UPDATE members SET account_status='suspended' WHERE id=?", [author.id]);
+    for (const period of ["all", "week"] as const) {
+      expect((await listLeaderboard(connection, period)).some((member) => member.handle === author.handle)).toBe(false);
+    }
+    await connection.execute("UPDATE members SET account_status='active' WHERE id=?", [author.id]);
+    expect(await setBlock(connection, peer.publicId, author.handle, true)).toBe("ok");
+    for (const period of ["all", "week"] as const) {
+      expect((await listLeaderboard(connection, period, peer.publicId)).some((member) => member.handle === author.handle)).toBe(false);
+      expect((await listLeaderboard(connection, period, author.publicId)).some((member) => member.handle === peer.handle)).toBe(false);
+      expect((await listLeaderboard(connection, period)).some((member) => member.handle === author.handle)).toBe(true);
+    }
   } finally {
     try {
       for (const member of members) {
+        await connection.execute("DELETE FROM member_blocks WHERE blocker_id=? OR blocked_id=?", [member.id, member.id]);
         await connection.execute("DELETE FROM post_comments WHERE member_id = ?", [member.id]);
         await connection.execute(
           "DELETE FROM post_keywords WHERE post_id IN (SELECT id FROM posts WHERE member_id = ?)",

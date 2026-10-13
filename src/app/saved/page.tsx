@@ -3,6 +3,8 @@ import { auth } from "@/auth";
 import { parsePage } from "@/shared/domain/pagination";
 import { authPool } from "@/server/auth/db";
 import { listBookmarks } from "@/server/bookmarks/bookmark-repository";
+import BookmarkButton from "@/app/components/bookmark-button";
+import { Avatar, EmptyState, PageHeading, Pagination } from "@/app/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -21,17 +23,18 @@ export default async function SavedPage({ searchParams }: {
   const connection = await authPool().getConnection();
   try {
     const result = await listBookmarks(connection, session.user.id, page);
-    return <main><p><a href="/">Accueil</a> · <a href="/profile">Mon profil</a></p>
-      <h1>Mes enregistrements</h1><p>Cette liste est privée.</p>
-      {!result.items.length && <p>Aucun contenu enregistré sur cette page.</p>}
-      <ul>{result.items.map((item) => <li key={`${item.kind}:${item.id}`}>
-        <a href={`/${item.kind === "post" ? "posts" : "projects"}/${item.id}`}>{item.title}</a>
-        {" · "}<a href={`/u/${item.authorHandle}`}>@{item.authorHandle}</a>
+    return <main><PageHeading title="Mes enregistrements" description="Les contenus que tu gardes pour plus tard. Cette liste est privée." />
+      {!result.items.length && <EmptyState title="Aucun contenu enregistré sur cette page."
+        href="/explore?kind=posts" action="Explorer les publications">Le bouton Enregistrer est disponible sur chaque publication et projet.</EmptyState>}
+      <ul className="card-list">{result.items.map((item) => <li key={`${item.kind}:${item.id}`}>
+        <article className="content-card"><div className="card-meta"><a className="identity" href={`/u/${item.authorHandle}`}>
+          <Avatar handle={item.authorHandle} /><strong>@{item.authorHandle}</strong></a>
+          <span className="tag">{item.kind === "post" ? "Publication" : "Projet"}</span></div>
+          <h2><a href={`/${item.kind === "post" ? "posts" : "projects"}/${item.id}`}>{item.title}</a></h2>
+          <BookmarkButton kind={item.kind} id={item.id} canSave />
+        </article>
       </li>)}</ul>
-      <nav aria-label="Pagination des enregistrements">
-        {page > 1 && <a href={`/saved?page=${page - 1}`}>Page précédente</a>}{" "}
-        {result.hasNext && <a href={`/saved?page=${page + 1}`}>Page suivante</a>}
-      </nav>
+      <Pagination page={page} hasNext={result.hasNext} href={(next) => `/saved?page=${next}`} />
     </main>;
   } finally { connection.release(); }
 }

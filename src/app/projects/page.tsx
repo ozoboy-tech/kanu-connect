@@ -1,8 +1,11 @@
-import { projectLabels as labels } from "@/modules/projects/domain/project-input";
 import { authPool } from "@/server/auth/db";
 import { listProjects } from "@/server/projects/project-repository";
 import { auth } from "@/auth";
+import { ProjectCard } from "@/app/components/content-card";
+import { EmptyState, PageHeading } from "@/app/components/ui";
+
 export const dynamic = "force-dynamic";
+
 export default async function ProjectsPage() {
   const session = await auth();
   const connection = await authPool().getConnection();
@@ -10,15 +13,13 @@ export default async function ProjectsPage() {
   try { projects = await listProjects(connection, session?.user.id ?? null); }
   finally { connection.release(); }
   return <main>
-    <h1>Projets de la communauté</h1>
-    <p><a href="/projects/new">Présenter mon projet</a></p>
-    <p><a href="/feed">Voir les publications</a></p>
-    {projects.length === 0 && <p>Aucun projet présenté pour le moment.</p>}
-    <ul>{projects.map((project) => <li key={project.id}>
-      <h2><a href={`/projects/${project.id}`}>{project.title}</a></h2>
-      <p>{project.summary}</p>
-      <p>{labels[project.status!]} · {project.technologies.join(", ")} ·{" "}
-        <a href={`/u/${project.authorHandle}`}>@{project.authorHandle}</a></p>
+    <PageHeading title="Projets de la communauté" description="Des idées aux premières versions : construisons ensemble."
+      action={<a className="button" href="/projects/new">Présenter mon projet</a>} />
+    {projects.length === 0 && <EmptyState title="Le prochain projet pourrait être le tien."
+      href="/projects/new" action="Présenter un projet">Partage ton idée, les technologies et les rôles que tu recherches.</EmptyState>}
+    <ul className="card-list card-grid">{projects.map((project) => <li key={project.id}>
+      <ProjectCard project={{ ...project, status: project.status! }} />
     </li>)}</ul>
+    <a className="text-link" href="/explore?kind=projects">Rechercher par technologie ou avancement →</a>
   </main>;
 }
