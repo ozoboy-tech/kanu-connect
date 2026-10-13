@@ -5,6 +5,7 @@ import { authPool } from "@/server/auth/db";
 import { getPost } from "@/server/posts/post-repository";
 import VoteButton from "@/app/components/vote-button";
 import ReportButton from "@/app/components/report-button";
+import AttachmentPanel from "@/app/components/attachment-panel";
 import PostActions from "./post-actions";
 import Comments from "./comments";
 import { opportunityLabels } from "@/modules/opportunities/domain/opportunity-input";
@@ -57,6 +58,7 @@ export default async function PostPage({ params }: {
       </section>}
 
       <p style={{ whiteSpace: "pre-wrap" }}>{post.body}</p>
+      <AttachmentPanel kind="post" id={post.id} canEdit={mayEdit && !!session?.user.onboarded} />
       {post.code && <section><h2>Code ({post.codeLanguage})</h2>
         <pre><code>{post.code}</code></pre></section>}
           <p>Mots-clés : {post.keywords.join(", ")}</p>

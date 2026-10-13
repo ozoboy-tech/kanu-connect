@@ -186,6 +186,7 @@ export default function PostForm({
       </select>
     </label></p>
 
+    <p>Après publication, tu peux ajouter des images ou des documents depuis sa page pendant quinze minutes.</p>
     <button type="submit">{initial ? "Enregistrer" : "Publier"}</button>
     <p role="status">{message}</p>
   </form>;
