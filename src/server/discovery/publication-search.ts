@@ -4,6 +4,7 @@ import { pageResult, pageWindow } from "@/shared/domain/pagination";
 import { activeOpportunitySql } from "@/server/opportunities/opportunity-repository";
 import { hiddenSql } from "@/server/reports/report-rules";
 import type { Kind, Space } from "@/modules/posts/domain/post-input";
+import { visibleToViewerSql } from "@/server/members/block-repository";
 
 export interface PublicationCard {
   id: string;
@@ -22,8 +23,9 @@ export async function searchPublications(
   const windowSql = pageWindow(query.page);
   const personal = query.feed === "following" || query.feed === "foryou";
   if (personal && !viewerId) throw new TypeError("Connexion requise pour ce fil.");
-  const where = ["p.deleted_at IS NULL", `NOT ${hiddenSql("post", "p")}`, activeOpportunitySql("p")];
-  const values: string[] = [];
+  const where = ["p.deleted_at IS NULL", `NOT ${hiddenSql("post", "p")}`,
+    activeOpportunitySql("p"), visibleToViewerSql("p.member_id")];
+  const values: (string | null)[] = [viewerId, viewerId];
   if (query.q) {
     where.push(`(p.title LIKE ? ESCAPE '!' OR p.body LIKE ? ESCAPE '!' OR EXISTS
       (SELECT 1 FROM post_keywords k WHERE k.post_id = p.id AND k.keyword LIKE ? ESCAPE '!'))`);

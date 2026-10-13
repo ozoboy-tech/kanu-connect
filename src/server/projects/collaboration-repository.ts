@@ -36,6 +36,13 @@ async function access(
      WHERE m.public_id = ?`, [viewerId],
   );
   if (!members[0]) return null;
+  const [blocked] = await connection.execute<RowDataPacket[]>(
+    `SELECT 1 FROM member_blocks WHERE
+       (blocker_id = ? AND blocked_id = ?) OR
+       (blocker_id = ? AND blocked_id = ?) LIMIT 1`,
+    [project.ownerId, members[0].id, members[0].id, project.ownerId],
+  );
+  if (blocked.length) return null;
   return {
     projectId: project.id, memberId: members[0].id,
     isOwner: project.ownerId === members[0].id,
@@ -96,6 +103,10 @@ export async function listCollaborations(
     filter += " AND r.id < ?";
     values.push(cursor);
   }
+  filter += ` AND NOT EXISTS (SELECT 1 FROM member_blocks b WHERE
+    (b.blocker_id = ? AND b.blocked_id = r.member_id) OR
+    (b.blocked_id = ? AND b.blocker_id = r.member_id))`;
+  values.push(target.memberId, target.memberId);
   const [rows] = await connection.execute<RequestRow[]>(
     `SELECT CAST(r.id AS CHAR) AS \`cursor\`, m.public_id AS memberId,
             p.handle, r.message, r.status
@@ -153,6 +164,14 @@ export async function decideCollaboration(
       [target.projectId, applicantId],
     );
     if (!requests[0]) return "not_found";
+    const [blocked] = await connection.execute<RowDataPacket[]>(
+      `SELECT 1 FROM member_blocks WHERE
+        (blocker_id = ? AND blocked_id = ?) OR
+        (blocker_id = ? AND blocked_id = ?) LIMIT 1`,
+      [target.memberId, requests[0].applicantId,
+       requests[0].applicantId, target.memberId],
+    );
+    if (blocked.length) return "forbidden";
     if (requests[0].status !== "pending") return "conflict";
     await connection.execute(
       `UPDATE project_collaboration_requests

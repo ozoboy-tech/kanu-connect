@@ -214,6 +214,9 @@ it("filtre, archive et notifie les opportunités selon les catégories suivies",
       .not.toContain(data2.id);
 
     process.env.KANU_MODERATOR_IDS = other.publicId;
+    await connection.execute(
+      "UPDATE members SET account_role = 'admin' WHERE public_id = ?", [other.publicId],
+    );
 
     await reportContent(connection, "post", backend.id, bob.publicId, "spam");
     await reviewContent(

@@ -20,7 +20,7 @@ export async function startSession(
        (token_hash, member_id, created_at, last_seen_at, expires_at)
      SELECT ?, id, UTC_TIMESTAMP(3), UTC_TIMESTAMP(3),
             UTC_TIMESTAMP(3) + INTERVAL 30 DAY
-     FROM members WHERE public_id = ?`,
+     FROM members WHERE public_id = ? AND account_status = 'active'`,
     [hashToken(secret), memberPublicId],
   );
   if (insert.affectedRows !== 1) throw new Error("Compte introuvable.");
@@ -39,6 +39,7 @@ export async function touchSession(
      LEFT JOIN member_profiles p ON p.member_id = m.id
      LEFT JOIN member_private_identities i ON i.member_id = m.id
      WHERE s.token_hash = ?
+       AND m.account_status = 'active'
        AND s.expires_at > UTC_TIMESTAMP(3)
        AND s.last_seen_at > UTC_TIMESTAMP(3) - INTERVAL 7 DAY`,
     [hashToken(secret)],

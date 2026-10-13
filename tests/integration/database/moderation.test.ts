@@ -112,7 +112,6 @@ it(
           handle,
         });
       }
-
       const [
         owner,
         moderator,
@@ -122,6 +121,10 @@ it(
 
       process.env.KANU_MODERATOR_IDS =
         moderator.publicId;
+      await connection.execute(
+        "UPDATE members SET account_role = 'admin' WHERE public_id = ?",
+        [moderator.publicId],
+      );
 
       const post = await createPost(
         connection,

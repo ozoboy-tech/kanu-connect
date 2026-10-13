@@ -1,6 +1,7 @@
 import type { PoolConnection, RowDataPacket } from "mysql2/promise";
 
 import type { ProfileUpdate } from "@/modules/members/domain/profile-input";
+import { visibleToViewerSql } from "@/server/members/block-repository";
 
 interface ProfileRow extends RowDataPacket {
   memberId: number;
@@ -58,14 +59,16 @@ async function makePublic(
 export async function getPublicProfile(
   connection: PoolConnection,
   handle: string,
+  viewerId: string | null = null,
 ): Promise<PublicProfile | null> {
   const [rows] = await connection.execute<ProfileRow[]>(
     `SELECT p.member_id AS memberId, m.public_id AS publicId,
             p.handle, p.photo_url AS photoUrl, p.bio, p.location
      FROM member_profiles p
      JOIN members m ON m.id = p.member_id
-     WHERE p.handle = ? LIMIT 1`,
-    [handle],
+     WHERE p.handle = ? AND m.account_status = 'active'
+       AND ${visibleToViewerSql("m.id")} LIMIT 1`,
+    [handle, viewerId, viewerId],
   );
   return rows[0] ? makePublic(connection, rows[0]) : null;
 }

@@ -119,6 +119,9 @@ it("notifie les bons membres et protège la lecture de leurs notifications", asy
     await expect(list(owner, "1 OR 1=1")).rejects.toThrow(TypeError);
 
     process.env.KANU_MODERATOR_IDS = other;
+    await connection.execute(
+      "UPDATE members SET account_role = 'admin' WHERE public_id = ?", [other],
+    );
     await reportContent(connection, "project", project.id, bob, "spam");
     expect(await reviewContent(connection, "project", project.id, other, "hide", "Test"))
       .toBe("ok");

@@ -12,7 +12,7 @@ it("garde la recherche SQL littérale, filtre tous les contenus invisibles et bo
   const db = database();
   await searchPublications(db.connection, query("q=50%25_!&space=questions&keyword=mysql&sort=unanswered&page=2"));
   const [sql, values] = db.execute.mock.calls[0];
-  expect(values).toEqual(["%50!%!_!!%", "%50!%!_!!%", "%50!%!_!!%", "questions", "mysql"]);
+  expect(values).toEqual([null, null, "%50!%!_!!%", "%50!%!_!!%", "%50!%!_!!%", "questions", "mysql"]);
   expect(sql).toContain("p.deleted_at IS NULL"); expect(sql).toContain("content_moderation_decisions");
   expect(sql).toContain("c.deleted_at IS NULL"); expect(sql).toContain("p.kind = 'question'");
   expect(sql).toContain("LIMIT 21 OFFSET 20"); expect(sql).not.toContain("50%_!");
@@ -31,7 +31,7 @@ it("personnalise avec l'identité transmise et retourne seulement les cartes pub
   expect(result.items).toHaveLength(20); expect(result.hasNext).toBe(true);
   expect(result.items[0]).not.toHaveProperty("email"); expect(result.items[0]).not.toHaveProperty("matchesInterest");
   const [sql, values] = db.execute.mock.calls[0];
-  expect(values).toEqual(["viewer", "viewer", "viewer", "viewer"]);
+  expect(values).toEqual(["viewer", "viewer", "viewer", "viewer", "viewer", "viewer"]);
   expect(sql).toContain("matchesInterest DESC"); expect(sql).toContain("votes7Days DESC");
   expect(sql).toContain("v.active = TRUE"); expect(sql).toContain("INTERVAL 7 DAY");
 });
@@ -39,5 +39,5 @@ it("réserve Abonnements aux membres suivis et à soi-même", async () => {
   const db = database(); await searchPublications(db.connection, query("feed=following"), "viewer");
   const [sql, values] = db.execute.mock.calls[0];
   expect(sql).toContain("f.follower_id = viewer.id AND f.followed_id = p.member_id");
-  expect(sql).toContain("viewer.id = p.member_id"); expect(values).toEqual(["viewer"]);
+  expect(sql).toContain("viewer.id = p.member_id"); expect(values).toEqual(["viewer", "viewer", "viewer"]);
 });

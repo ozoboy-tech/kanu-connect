@@ -88,6 +88,15 @@ export async function getVoteState(
   viewerId: string | null,
 ): Promise<VoteState | null> {
   const target = await targetOf(connection, kind, id, false);
+  if (target && viewerId) {
+    const [blocked] = await connection.execute<RowDataPacket[]>(
+      `SELECT 1 FROM member_blocks b JOIN members viewer ON viewer.public_id = ?
+       WHERE (b.blocker_id = viewer.id AND b.blocked_id = ?)
+          OR (b.blocked_id = viewer.id AND b.blocker_id = ?) LIMIT 1`,
+      [viewerId, target.authorId, target.authorId],
+    );
+    if (blocked.length) return null;
+  }
   return target ? stateOf(connection, kind, target.id, viewerId) : null;
 }
 
@@ -108,6 +117,13 @@ export async function setVote(
       await connection.rollback();
       return "self";
     }
+    const [blocked] = await connection.execute<RowDataPacket[]>(
+      `SELECT 1 FROM member_blocks WHERE
+         (blocker_id = ? AND blocked_id = ?) OR
+         (blocker_id = ? AND blocked_id = ?) LIMIT 1`,
+      [voterId, target.authorId, target.authorId, voterId],
+    );
+    if (blocked.length) { await connection.rollback(); return "not_found"; }
 
     const { votes, key, action } = config[kind];
     if (active) {

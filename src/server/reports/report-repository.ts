@@ -1,4 +1,5 @@
 import type { PoolConnection, RowDataPacket } from "mysql2/promise";
+import { areBlocked } from "@/server/members/block-repository";
 
 import { refreshSolution } from
   "@/server/solutions/solution-repository";
@@ -119,7 +120,7 @@ export async function getReportState(
   viewerId: string,
 ): Promise<ReportState | null> {
   const target = await targetOf(connection, kind, id, false);
-  return target
+  return target && !await areBlocked(connection, viewerId, target.authorId)
     ? stateOf(connection, kind, target.id, viewerId)
     : null;
 }
@@ -136,7 +137,7 @@ export async function reportContent(
   try {
     const target = await targetOf(connection, kind, id, true);
 
-    if (!target) {
+    if (!target || await areBlocked(connection, viewerId, target.authorId)) {
       await connection.rollback();
       return "not_found";
     }

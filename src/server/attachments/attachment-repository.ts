@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { PoolConnection, RowDataPacket } from "mysql2/promise";
 import { maxAttachments, validateAttachment, type AttachmentInfo, type AttachmentInput, type AttachmentKind } from "@/modules/attachments/domain/attachment-input";
 import { hiddenSql } from "@/server/reports/report-rules";
+import { visibleToViewerSql } from "@/server/members/block-repository";
 
 type Target = RowDataPacket & { id: number; authorId: string; editable: number; hidden: number; deletedAt: Date | null };
 type FileRow = RowDataPacket & AttachmentInfo & { data: Buffer };
@@ -9,23 +10,26 @@ export type AttachmentMutation = "ok" | "not_found" | "forbidden" | "limit";
 const tables = { post: "posts", project: "member_projects" } as const;
 const keys = { post: "post_id", project: "project_id" } as const;
 
-async function target(connection: PoolConnection, kind: AttachmentKind, id: string, lock = false): Promise<Target | null> {
+async function target(connection: PoolConnection, kind: AttachmentKind, id: string,
+  lock = false, viewerId: string | null = null): Promise<Target | null> {
   const [rows] = await connection.execute<Target[]>(
     `SELECT p.id, m.public_id AS authorId, p.deleted_at AS deletedAt,
       ${kind === "post" ? "(p.created_at > UTC_TIMESTAMP(3) - INTERVAL 15 MINUTE)" : "1"} AS editable,
       ${hiddenSql(kind, "p")} AS hidden
      FROM ${tables[kind]} p JOIN members m ON m.id = p.member_id
-     WHERE p.public_id = ?${lock ? " FOR UPDATE" : ""}`, [id],
+     WHERE p.public_id = ? AND ${visibleToViewerSql("p.member_id")}
+       ${lock ? " FOR UPDATE" : ""}`, [id, viewerId, viewerId],
   );
   const row = rows[0];
   return row && !row.deletedAt && !row.hidden ? row : null;
 }
 
-export async function listAttachments(connection: PoolConnection, kind: AttachmentKind, id: string): Promise<AttachmentInfo[] | null> {
+export async function listAttachments(connection: PoolConnection, kind: AttachmentKind, id: string,
+  viewerId: string | null = null): Promise<AttachmentInfo[] | null> {
   // Une transaction de lecture garde la décision de visibilité cohérente avec les métadonnées.
   await connection.beginTransaction();
   try {
-    const content = await target(connection, kind, id);
+    const content = await target(connection, kind, id, false, viewerId);
     if (!content) { await connection.commit(); return null; }
     const [rows] = await connection.execute<(RowDataPacket & AttachmentInfo)[]>(
       `SELECT public_id AS id, filename, mime_type AS mimeType, byte_size AS size
@@ -36,10 +40,11 @@ export async function listAttachments(connection: PoolConnection, kind: Attachme
   } catch (error) { await connection.rollback(); throw error; }
 }
 
-export async function getAttachment(connection: PoolConnection, kind: AttachmentKind, id: string, attachmentId: string): Promise<(AttachmentInfo & { data: Buffer }) | null> {
+export async function getAttachment(connection: PoolConnection, kind: AttachmentKind, id: string,
+  attachmentId: string, viewerId: string | null = null): Promise<(AttachmentInfo & { data: Buffer }) | null> {
   await connection.beginTransaction();
   try {
-    const content = await target(connection, kind, id);
+    const content = await target(connection, kind, id, false, viewerId);
     if (!content) { await connection.commit(); return null; }
     const [rows] = await connection.execute<FileRow[]>(
       `SELECT public_id AS id, filename, mime_type AS mimeType, byte_size AS size, file_data AS data

@@ -214,8 +214,12 @@ describe("Reprise contrôlée de la migration members", () => {
   "0040_project_bookmarks.sql",
   "0041_solution_notifications.sql",
   "0042_notification_preferences.sql",
+  "0043_member_account_state.sql",
+  "0044_member_blocks.sql",
+  "0045_content_moderation_audit.sql",
+  "0046_account_admin_audit.sql",
 ]);
-expect(applied).toHaveLength(42);
+expect(applied).toHaveLength(46);
 });
 });
 
@@ -224,6 +228,8 @@ it("limite chaque nouvelle migration à une instruction MySQL", async () => {
     "0037_discovery_preferences.sql", "0038_content_bookmarks.sql",
     "0039_member_followed_topics.sql", "0040_project_bookmarks.sql",
     "0041_solution_notifications.sql", "0042_notification_preferences.sql",
+    "0043_member_account_state.sql", "0044_member_blocks.sql",
+    "0045_content_moderation_audit.sql", "0046_account_admin_audit.sql",
   ]) {
     const sql = await readFile(new URL(`../../../db/migrations/${filename}`, import.meta.url), "utf8");
     expect((sql.match(/\b(?:CREATE|ALTER)\s+TABLE\b/giu) ?? [])).toHaveLength(1);

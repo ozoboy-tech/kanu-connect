@@ -184,6 +184,9 @@ it("notifie les abonnés, les réponses et les mentions sans doublons", async ()
     ).toBe("not_found");
 
     process.env.KANU_MODERATOR_IDS = owner.publicId;
+    await connection.execute(
+      "UPDATE members SET account_role = 'admin' WHERE public_id = ?", [owner.publicId],
+    );
 
     await reportContent(connection, "comment", nested.id, owner.publicId, "spam");
 

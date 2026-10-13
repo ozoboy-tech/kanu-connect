@@ -3,6 +3,7 @@ import { projectLabels } from "@/modules/projects/domain/project-input";
 import { kinds, spaces, kindLabels, spaceLabels } from "@/modules/posts/domain/post-input";
 import { authPool } from "@/server/auth/db";
 import { searchExplore, type ExploreResult } from "@/server/explore/explore-repository";
+import { auth } from "@/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -24,8 +25,9 @@ export default async function ExplorePage({ searchParams }: {
   }
   let result: ExploreResult;
   try {
+    const session = await auth();
     const connection = await authPool().getConnection();
-    try { result = await searchExplore(connection, query); }
+    try { result = await searchExplore(connection, query, session?.user.id ?? null); }
     finally { connection.release(); }
   } catch {
     return <main><h1>Explorer</h1><p role="alert">Recherche temporairement indisponible.</p>

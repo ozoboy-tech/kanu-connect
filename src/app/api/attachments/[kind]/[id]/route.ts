@@ -14,9 +14,10 @@ export async function GET(_request: NextRequest, context: Context): Promise<Resp
     const { kind: raw, id } = await context.params;
     const kind = parseAttachmentKind(raw);
     if (!validPostId(id)) return failure("Contenu introuvable.", 404);
+    const session = await auth();
     const connection = await authPool().getConnection();
     try {
-      const files = await listAttachments(connection, kind, id);
+      const files = await listAttachments(connection, kind, id, session?.user.id ?? null);
       return files === null ? failure("Contenu introuvable.", 404)
         : Response.json(files, { headers: { "Cache-Control": "no-store" } });
     } finally { connection.release(); }

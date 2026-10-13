@@ -12,13 +12,12 @@ export async function GET(request: Request): Promise<Response> {
   catch { return failure("Filtres invalides.", 400); }
   try {
     const personal = query.feed === "following" || query.feed === "foryou";
-    const session = personal ? await auth() : null;
+    const session = await auth();
     if (personal && !session?.user?.id) return failure("Connexion requise.", 401);
     if (personal && !session?.user.onboarded) return failure("Profil à compléter.", 403);
     const connection = await authPool().getConnection();
     try {
-      const result = personal ? await searchExplore(connection, query, session!.user.id)
-        : await searchExplore(connection, query);
+      const result = await searchExplore(connection, query, session?.user.id ?? null);
       return Response.json(result, {
         headers: { "Cache-Control": "no-store" },
       });

@@ -6,6 +6,7 @@ import { recordUsefulActivity } from "@/server/streaks/streak-repository";
 import { refreshSolution } from "@/server/solutions/solution-repository";
 import { hiddenSql } from "@/server/reports/report-rules";
 import { notifyComment } from "@/server/notifications/community-notifications";
+import { areBlocked } from "@/server/members/block-repository";
 
 interface CommentRow extends RowDataPacket {
   id: string;
@@ -22,6 +23,7 @@ interface CommentRow extends RowDataPacket {
 
 interface PostRow extends RowDataPacket {
   internalId: number;
+  authorId: string;
   deletedAt: Date | null;
   hidden: number;
 }
@@ -29,6 +31,7 @@ interface PostRow extends RowDataPacket {
 interface ParentRow extends RowDataPacket {
   internalId: number;
   postId: number;
+  authorId: string;
   depth: number;
   hidden: number;
 }
@@ -86,14 +89,26 @@ function present(row: CommentRow): PublicComment {
 }
 
 export async function listComments(
-  connection: PoolConnection, postId: string,
+  connection: PoolConnection, postId: string, viewerId: string | null = null,
 ): Promise<PublicComment[]> {
   const [rows] = await connection.execute<CommentRow[]>(
     `${projection} WHERE p.public_id = ?
      ORDER BY c.created_at ASC, c.id ASC`,
     [postId],
   );
-  return rows.map(present);
+  if (!viewerId) return rows.map(present);
+  const [blocked] = await connection.execute<(RowDataPacket & { publicId: string })[]>(
+    `SELECT peer.public_id AS publicId FROM member_blocks b
+     JOIN members viewer ON viewer.public_id = ?
+     JOIN members peer ON peer.id = IF(b.blocker_id = viewer.id,
+       b.blocked_id, b.blocker_id)
+     WHERE b.blocker_id = viewer.id OR b.blocked_id = viewer.id`, [viewerId],
+  );
+  const hiddenAuthors = new Set(blocked.map((row) => row.publicId));
+  return rows.map((row) => hiddenAuthors.has(row.authorId)
+    ? { ...present(row), authorId: null, authorHandle: null,
+        body: "Contenu indisponible", deleted: true }
+    : present(row));
 }
 
 export async function getComment(
@@ -113,13 +128,16 @@ export async function createComment(
   await connection.beginTransaction();
   try {
     const [posts] = await connection.execute<PostRow[]>(
-      `SELECT id AS internalId, deleted_at AS deletedAt,
+      `SELECT id AS internalId,
+              (SELECT public_id FROM members WHERE id = posts.member_id) AS authorId,
+              deleted_at AS deletedAt,
               ${hiddenSql("post", "posts")} AS hidden
        FROM posts WHERE public_id = ? FOR UPDATE`,
       [postId],
     );
     const post = posts[0];
-    if (!post || post.deletedAt || post.hidden) {
+    if (!post || post.deletedAt || post.hidden ||
+        await areBlocked(connection, authorId, post.authorId)) {
       throw new TypeError("Publication indisponible.");
     }
 
@@ -128,6 +146,7 @@ export async function createComment(
     if (input.parentId) {
       const [parents] = await connection.execute<ParentRow[]>(
         `SELECT id AS internalId, post_id AS postId, depth,
+                (SELECT public_id FROM members WHERE id = post_comments.member_id) AS authorId,
                 ${hiddenSql("comment", "post_comments")} AS hidden
          FROM post_comments WHERE public_id = ? FOR UPDATE`,
         [input.parentId],
@@ -137,7 +156,8 @@ export async function createComment(
         !parent ||
         parent.hidden ||
         parent.postId !== post.internalId ||
-        parent.depth >= 4
+        parent.depth >= 4 ||
+        await areBlocked(connection, authorId, parent.authorId)
       ) {
         throw new TypeError("Réponse impossible à ce commentaire.");
       }

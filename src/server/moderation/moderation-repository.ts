@@ -7,7 +7,7 @@ import type { ReportKind } from
   "@/server/reports/report-rules";
 import { refreshSolution } from
   "@/server/solutions/solution-repository";
-import { isModerator } from "./moderator";
+import { canModerate, isAdmin } from "./moderator";
 
 export type ModerationDecision = "hide" | "restore";
 
@@ -64,7 +64,7 @@ export async function listModerationQueue(
   connection: PoolConnection,
   moderatorId: string,
 ): Promise<ModerationItem[]> {
-  if (!isModerator(moderatorId)) {
+  if (!await canModerate(connection, moderatorId)) {
     throw new Error("Accès refusé.");
   }
 
@@ -183,9 +183,14 @@ export async function reviewContent(
   decision: ModerationDecision,
   note: string,
 ): Promise<ReviewResult> {
-  if (!isModerator(moderatorId)) {
+  if (!await canModerate(connection, moderatorId)) {
     return "forbidden";
   }
+
+  const admin = await isAdmin(connection, moderatorId);
+  if (decision === "restore" && !admin) return "forbidden";
+
+  if (!note.trim() || note.trim().length > 500) return "forbidden";
 
   await connection.beginTransaction();
 
@@ -232,6 +237,16 @@ export async function reviewContent(
       return "not_found";
     }
 
+    if (!admin) {
+      const [finalReview] = await connection.execute<IdRow[]>(
+        `SELECT id FROM content_moderation_audit
+         WHERE ${key} = ? AND final_by_admin = TRUE LIMIT 1`, [target.id],
+      );
+      if (finalReview.length) {
+        await connection.rollback(); return "forbidden";
+      }
+    }
+
     await connection.execute(
       `INSERT INTO content_moderation_decisions
        (${key}, moderator_id, decision, note, reviewed_at)
@@ -247,6 +262,13 @@ export async function reviewContent(
         decision,
         note,
       ],
+    );
+
+    await connection.execute(
+      `INSERT INTO content_moderation_audit
+       (${key}, actor_id, decision, reason, final_by_admin, created_at)
+       VALUES (?, ?, ?, ?, ?, UTC_TIMESTAMP(3))`,
+      [target.id, members[0].id, decision, note.trim(), admin],
     );
 
     if (kind === "post") {

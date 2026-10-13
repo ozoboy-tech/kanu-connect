@@ -1,15 +1,13 @@
 import { projectLabels as labels } from "@/modules/projects/domain/project-input";
 import { authPool } from "@/server/auth/db";
 import { listProjects } from "@/server/projects/project-repository";
-
+import { auth } from "@/auth";
 export const dynamic = "force-dynamic";
-
-
-
 export default async function ProjectsPage() {
+  const session = await auth();
   const connection = await authPool().getConnection();
   let projects;
-  try { projects = await listProjects(connection); }
+  try { projects = await listProjects(connection, session?.user.id ?? null); }
   finally { connection.release(); }
   return <main>
     <h1>Projets de la communauté</h1>

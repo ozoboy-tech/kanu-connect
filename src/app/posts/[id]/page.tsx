@@ -11,20 +11,17 @@ import PostActions from "./post-actions";
 import Comments from "./comments";
 import { opportunityLabels } from "@/modules/opportunities/domain/opportunity-input";
 export const dynamic = "force-dynamic";
-
-
-
 export default async function PostPage({ params }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
   if (!validPostId(id)) notFound();
+  const session = await auth();
   const connection = await authPool().getConnection();
   let post;
-  try { post = await getPost(connection, id); }
+  try { post = await getPost(connection, id, session?.user.id ?? null); }
   finally { connection.release(); }
   if (!post) notFound();
-  const session = await auth();
   const mayEdit = !post.deleted && session?.user.id === post.authorId &&
     Date.now() - new Date(post.createdAt).getTime() < 15 * 60_000;
   return <main>

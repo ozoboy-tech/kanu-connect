@@ -10,7 +10,7 @@ import {
   publicError,
   sameOrigin,
 } from "@/server/auth/http";
-import { isModerator } from
+import { canModerate } from
   "@/server/moderation/moderator";
 import {
   reviewContent,
@@ -52,10 +52,6 @@ export async function POST(
       return failure("Connexion requise.", 401);
     }
 
-    if (!isModerator(session.user.id)) {
-      return failure("Accès refusé.", 403);
-    }
-
     const { decision, note } = await bodyOf(
       request,
       1024,
@@ -70,7 +66,7 @@ export async function POST(
 
     if (
       typeof note !== "string" ||
-      note.trim().length > 500
+      note.trim().length < 5 || note.trim().length > 500
     ) {
       return failure("Note invalide.", 400);
     }
@@ -78,6 +74,9 @@ export async function POST(
     const connection = await authPool().getConnection();
 
     try {
+      if (!await canModerate(connection, session.user.id)) {
+        return failure("Accès refusé.", 403);
+      }
       const result = await reviewContent(
         connection,
         kind as ReportKind,

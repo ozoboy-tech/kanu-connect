@@ -31,7 +31,9 @@ const tables = `FROM member_notifications n
   LEFT JOIN posts p ON p.id = n.post_id
   LEFT JOIN post_comments c ON c.id = n.comment_id`;
 
-const visible = `(
+const visible = `NOT EXISTS (SELECT 1 FROM member_blocks b WHERE
+  (b.blocker_id = recipient.id AND b.blocked_id = n.actor_id) OR
+  (b.blocked_id = recipient.id AND b.blocker_id = n.actor_id)) AND (
   (n.project_id IS NOT NULL AND project.deleted_at IS NULL
     AND NOT ${hiddenSql("project", "project")})
   OR

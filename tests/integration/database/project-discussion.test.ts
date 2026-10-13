@@ -106,6 +106,9 @@ it("réserve la discussion à l'équipe et conserve un historique paginé", asyn
     await expect(list(owner, "0 OR 1=1")).rejects.toThrow(TypeError);
 
     process.env.KANU_MODERATOR_IDS = other;
+    await connection.execute(
+      "UPDATE members SET account_role = 'admin' WHERE public_id = ?", [other],
+    );
     await denied(other);
     await reportContent(connection, "project", project.id, bob, "spam");
     expect(await reviewContent(connection, "project", project.id, other, "hide", "Test"))

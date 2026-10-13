@@ -5,6 +5,7 @@ import {
 import type { ProjectStatus } from "@/modules/projects/domain/project-input";
 import { hiddenSql } from "@/server/reports/report-rules";
 import { searchPublications, type PublicationCard } from "@/server/discovery/publication-search";
+import { visibleToViewerSql } from "@/server/members/block-repository";
 
 export interface ExploreMember {
   publicId: string;
@@ -49,7 +50,7 @@ export async function searchExplore(
     return { kind: "posts", ...await searchPublications(connection, query, viewerId) };
   }
   const windowSql = `LIMIT ${explorePageSize + 1} OFFSET ${(query.page - 1) * explorePageSize}`;
-  const values: string[] = [];
+  const values: (string | null)[] = [viewerId, viewerId];
   const where: string[] = [];
   const pageInfo = (length: number) => ({
     page: query.page,
@@ -57,6 +58,7 @@ export async function searchExplore(
   });
 
   if (query.kind === "members") {
+    where.push("m.account_status = 'active'", visibleToViewerSql("m.id"));
     if (query.q) {
       where.push(`(CONVERT(profile.handle USING utf8mb4) COLLATE utf8mb4_0900_ai_ci
         LIKE ? ESCAPE '!' OR profile.bio LIKE ? ESCAPE '!')`);
@@ -87,7 +89,8 @@ export async function searchExplore(
       })) };
   }
 
-  where.push("p.deleted_at IS NULL", `NOT ${hiddenSql("project", "p")}`);
+  where.push("p.deleted_at IS NULL", `NOT ${hiddenSql("project", "p")}`,
+    visibleToViewerSql("p.member_id"));
   if (query.q) {
     where.push(`(p.title LIKE ? ESCAPE '!' OR p.summary LIKE ? ESCAPE '!'
       OR p.description LIKE ? ESCAPE '!')`);
