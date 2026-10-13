@@ -6,6 +6,7 @@ import { getPost } from "@/server/posts/post-repository";
 import VoteButton from "@/app/components/vote-button";
 import ReportButton from "@/app/components/report-button";
 import AttachmentPanel from "@/app/components/attachment-panel";
+import BookmarkButton from "@/app/components/bookmark-button";
 import PostActions from "./post-actions";
 import Comments from "./comments";
 import { opportunityLabels } from "@/modules/opportunities/domain/opportunity-input";
@@ -31,6 +32,7 @@ export default async function PostPage({ params }: {
     <h1>{post.title}</h1>
     {!post.deleted && <>
       <p>Par <a href={`/u/${post.authorHandle}`}>@{post.authorHandle}</a></p>
+      <BookmarkButton kind="post" id={post.id} canSave={!!session?.user.onboarded} />
       <p>Espace : {post.space} · Type : {post.kind}</p>
 
       {post.kind === "opportunity" && <section>

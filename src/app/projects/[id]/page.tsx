@@ -9,6 +9,7 @@ import ReportButton from "@/app/components/report-button";
 import ProjectActions from "./project-actions";
 import ProjectCollaboration from "./project-collaboration";
 import AttachmentPanel from "@/app/components/attachment-panel";
+import BookmarkButton from "@/app/components/bookmark-button";
 
 
 
@@ -29,6 +30,7 @@ export default async function ProjectPage({ params }: {
     <h1>{project.title}</h1>
     {!project.deleted && <>
       <p>Par <a href={`/u/${project.authorHandle}`}>@{project.authorHandle}</a></p>
+      <BookmarkButton kind="project" id={project.id} canSave={!!session?.user.onboarded} />
       <p>Avancement : {labels[project.status!]}</p>
       <p>{project.summary}</p>
       <p style={{ whiteSpace: "pre-wrap" }}>{project.description}</p>
