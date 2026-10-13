@@ -181,6 +181,19 @@ export async function refreshSolution(
      VALUES (?, ?, ?, ?, UTC_TIMESTAMP(3))`,
     [postInternalId, winner.memberId, awarded, today],
   );
+  await connection.execute(
+    `INSERT INTO member_notifications
+     (post_id, comment_id, recipient_id, actor_id, kind, created_at)
+     SELECT post.id, comment.id, comment.member_id, post.member_id,
+            'solution', UTC_TIMESTAMP(3)
+     FROM posts post
+     JOIN post_comments comment ON comment.id = ? AND comment.post_id = post.id
+     LEFT JOIN member_notification_preferences pref ON pref.member_id = comment.member_id
+     WHERE post.id = ? AND post.member_id <> comment.member_id
+       AND COALESCE(pref.solutions_enabled, 1) = 1
+     ON DUPLICATE KEY UPDATE id = member_notifications.id`,
+    [winner.commentId, postInternalId],
+  );
   if (awarded) {
     await connection.execute(
       `UPDATE member_reputation_days

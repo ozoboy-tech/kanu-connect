@@ -1,7 +1,9 @@
 import type { PoolConnection, RowDataPacket } from "mysql2/promise";
 import {
   parseNotificationId,
+  parseNotificationFilter,
   type Notification,
+  type NotificationFilter,
   type NotificationKind,
   type NotificationPage,
   type ProjectNotificationKind,
@@ -40,6 +42,15 @@ const visible = `(
       (c.deleted_at IS NULL AND NOT ${hiddenSql("comment", "c")})))
 )`;
 
+const filterSql: Record<NotificationFilter, string> = {
+  all: "1 = 1",
+  unread: "n.read_at IS NULL",
+  projects: "n.project_id IS NOT NULL",
+  community: "n.kind IN ('publication', 'reply', 'mention') AND p.kind <> 'opportunity'",
+  opportunities: "n.kind = 'publication' AND p.kind = 'opportunity'",
+  solutions: "n.kind = 'solution'",
+};
+
 export async function countUnreadNotifications(
   connection: PoolConnection,
   memberId: string,
@@ -57,8 +68,10 @@ export async function listNotifications(
   connection: PoolConnection,
   memberId: string,
   before: string | null = null,
+  filter: NotificationFilter = "all",
 ): Promise<NotificationPage> {
   const cursor = parseNotificationId(before);
+  const selectedFilter = parseNotificationFilter(filter);
 
   const [rows] = await connection.execute<NotificationRow[]>(
     `SELECT CAST(n.id AS CHAR) AS id, n.kind,
@@ -69,6 +82,7 @@ export async function listNotifications(
      ${tables}
      JOIN member_profiles profile ON profile.member_id = n.actor_id
      WHERE recipient.public_id = ? AND ${visible}
+       AND ${filterSql[selectedFilter]}
        ${cursor ? "AND n.id < CAST(? AS UNSIGNED)" : ""}
      ORDER BY n.id DESC LIMIT 21`,
     cursor ? [memberId, cursor] : [memberId],

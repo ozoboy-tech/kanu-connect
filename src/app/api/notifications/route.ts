@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { auth } from "@/auth";
-import { parseNotificationId } from "@/modules/notifications/domain/notification-input";
+import { parseNotificationFilter, parseNotificationId } from "@/modules/notifications/domain/notification-input";
 import { authPool } from "@/server/auth/db";
 import { bodyOf, failure, publicError, sameOrigin } from "@/server/auth/http";
 import {
@@ -24,6 +24,7 @@ async function execute(request: NextRequest): Promise<Response> {
   if (!session.user.onboarded) return failure("Profil à compléter.", 403);
   let id: string | null = null;
   let before: string | null = null;
+  let filter = parseNotificationFilter(null);
   if (request.method === "PATCH") {
     const body = await bodyOf(request);
     if (typeof body.id !== "string" || Object.keys(body).some((key) => key !== "id")) {
@@ -32,11 +33,12 @@ async function execute(request: NextRequest): Promise<Response> {
     id = parseNotificationId(body.id);
   } else {
     before = parseNotificationId(request.nextUrl.searchParams.get("before"));
+    filter = parseNotificationFilter(request.nextUrl.searchParams.get("filter"));
   }
   const connection = await authPool().getConnection();
   try {
     if (request.method === "GET") {
-      return Response.json(await listNotifications(connection, session.user.id, before));
+      return Response.json(await listNotifications(connection, session.user.id, before, filter));
     }
     const result = await markNotificationRead(connection, session.user.id, id!);
     return result === "ok" ? Response.json({ ok: true })

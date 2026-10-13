@@ -11,10 +11,13 @@ import {
 } from "@/server/posts/post-repository";
 import { getReputation } from
   "@/server/reputation/reputation-repository";
+import { listNotifications } from "@/server/notifications/notification-repository";
+import { saveNotificationPreferences } from "@/server/notifications/notification-preferences";
 import {
   getSolutionState, setQuestionResolved,
 } from "@/server/solutions/solution-repository";
 import { setVote } from "@/server/votes/vote-repository";
+
 import { runMigrations } from "../../../scripts/migrate.mjs";
 
 it("sélectionne la solution, transfère le bonus et permet de résoudre", async () => {
@@ -109,6 +112,11 @@ it("sélectionne la solution, transfère le bonus et permet de résoudre", async
       resolved: false,
       votes: 3,
     });
+    const firstSolution = await listNotifications(connection, firstAuthor.publicId, null, "solutions");
+    expect(firstSolution.notifications).toMatchObject([{
+      kind: "solution", postId: post.id, actorHandle: owner.handle,
+    }]);
+    expect((await listNotifications(connection, owner.publicId, null, "solutions")).notifications).toEqual([]);
     expect(
       (await getReputation(connection, firstAuthor.handle))?.points,
     ).toBe(12);
@@ -118,6 +126,10 @@ it("sélectionne la solution, transfère le bonus et permet de résoudre", async
         connection, "comment", second.id, voter.publicId, true,
       );
     }
+    await saveNotificationPreferences(connection, secondAuthor.publicId, {
+      projectsEnabled: true, communityEnabled: true,
+      opportunitiesEnabled: true, solutionsEnabled: false,
+    });
     expect(
       (await getSolutionState(connection, post.id))?.commentId,
     ).toBe(first.id);
@@ -129,6 +141,11 @@ it("sélectionne la solution, transfère le bonus et permet de résoudre", async
       commentId: second.id,
       resolved: false,
       votes: 4,
+    });
+    expect((await listNotifications(connection, secondAuthor.publicId, null, "solutions")).notifications).toEqual([]);
+    await saveNotificationPreferences(connection, secondAuthor.publicId, {
+      projectsEnabled: true, communityEnabled: true,
+      opportunitiesEnabled: true, solutionsEnabled: true,
     });
     expect(
       (await getReputation(connection, firstAuthor.handle))?.points,
@@ -158,10 +175,11 @@ it("sélectionne la solution, transfère le bonus et permet de résoudre", async
 
     await setVote(
       connection, "comment", second.id, voters[3].publicId, false,
-    );
+        );
     expect(
       (await getSolutionState(connection, post.id))?.commentId,
     ).toBe(first.id);
+    expect((await listNotifications(connection, firstAuthor.publicId, null, "solutions")).notifications).toHaveLength(1);
     expect(
       (await getReputation(connection, firstAuthor.handle))?.points,
     ).toBe(12);
@@ -177,6 +195,7 @@ it("sélectionne la solution, transfère le bonus et permet de résoudre", async
     expect(
       (await getSolutionState(connection, post.id))?.commentId,
     ).toBe(second.id);
+    expect((await listNotifications(connection, secondAuthor.publicId, null, "solutions")).notifications).toHaveLength(1);
 
     expect(
       await deletePost(connection, post.id, owner.publicId),

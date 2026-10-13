@@ -82,9 +82,11 @@ export async function notifyOpportunity(
      JOIN member_profiles profile ON profile.member_id = subscription.member_id
      JOIN member_private_identities identity_record
        ON identity_record.member_id = profile.member_id
+     LEFT JOIN member_notification_preferences pref ON pref.member_id = profile.member_id
      WHERE p.id = ? AND p.kind = 'opportunity' AND p.deleted_at IS NULL
        AND opportunity.deadline > UTC_TIMESTAMP(3)
        AND profile.member_id <> p.member_id
+       AND COALESCE(pref.opportunities_enabled, 1) = 1
      ON DUPLICATE KEY UPDATE id = member_notifications.id`,
     [postId],
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { NotificationPage } from "@/modules/notifications/domain/notification-input";
+import type { NotificationFilter, NotificationPage } from "@/modules/notifications/domain/notification-input";
 
 const labels = {
   request: "a envoyé une demande de collaboration",
@@ -11,10 +11,13 @@ const labels = {
   publication: "a publié un nouveau contenu",
   reply: "t’a répondu",
   mention: "t’a mentionné dans un contenu",
+  solution: "a obtenu une solution",
 
 };
 
-export default function NotificationsInbox({ initialPage }: { initialPage: NotificationPage }) {
+export default function NotificationsInbox({ initialPage, filter }: {
+  initialPage: NotificationPage; filter: NotificationFilter;
+}) {
   const [data, setData] = useState<NotificationPage | null>(initialPage);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -30,7 +33,9 @@ export default function NotificationsInbox({ initialPage }: { initialPage: Notif
   }
 
   async function read(cursor: string | null = null): Promise<NotificationPage> {
-    const url = endpoint + (cursor ? `?before=${encodeURIComponent(cursor)}` : "");
+    const query = new URLSearchParams({ filter });
+    if (cursor) query.set("before", cursor);
+    const url = `${endpoint}?${query}`;
     return check(await fetch(url, { cache: "no-store" }));
   }
 
@@ -70,7 +75,9 @@ export default function NotificationsInbox({ initialPage }: { initialPage: Notif
       {data.notifications.length === 0 && <p>Aucune notification pour le moment.</p>}
       <ul>{data.notifications.map((item) => <li key={item.id}>
         <p><strong>{item.readAt ? "Lue" : "Non lue"}</strong>{" — "}
-          @{item.actorHandle} {labels[item.kind]}.</p>
+          {item.kind === "solution"
+            ? <>Ta réponse à la question de @{item.actorHandle} est devenue la solution.</>
+            : <>@{item.actorHandle} {labels[item.kind]}.</>}</p>
         <p>{"projectId" in item ? <a
           href={`/projects/${item.projectId}${item.kind === "discussion" ? "/discussion" : ""}`}>
           {item.projectTitle}
