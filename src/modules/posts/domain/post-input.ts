@@ -10,10 +10,17 @@ export const kinds = [
 ] as const;
 export const languages = [
   "typescript", "javascript", "python", "php", "sql", "bash",
-  "html", "css", "java", "csharp", "go", "rust",
+ "html", "css", "java", "csharp", "go", "rust",
 ] as const;
 export type Space = typeof spaces[number];
 export type Kind = typeof kinds[number];
+export const spaceLabels: Record<Space, string> = {
+  questions: "Questions", sharing: "Partages et astuces", projects: "Projets", opportunities: "Opportunités",
+};
+export const kindLabels: Record<Kind, string> = {
+  question: "Question", tip: "Astuce", project: "Présentation de projet",
+  opportunity: "Opportunité", tutorial: "Tutoriel", announcement: "Annonce",
+};
 
 export interface PostInput {
   kind: Kind;

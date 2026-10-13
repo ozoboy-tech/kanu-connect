@@ -13,7 +13,7 @@ it("ouvre les membres et normalise les espaces des filtres", () => {
 });
 
 it.each([
-  "kind=posts", "page=0", "page=-1", "page=1.5", "page=1001", "page=01", "page=",
+  "kind=unknown", "page=0", "page=-1", "page=1.5", "page=1001", "page=01", "page=",
   "q=a&q=b", "memberId=secret", "kind=members&technology=React",
   "kind=projects&skill=React", "kind=projects&location=Bamako",
   "kind=projects&status=unknown", "q=%00", "q=%0A",

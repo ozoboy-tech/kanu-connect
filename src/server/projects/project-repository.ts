@@ -121,11 +121,11 @@ export async function createProject(
        SELECT ?, m.id, ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP(3), UTC_TIMESTAMP(3)
        FROM members m
        JOIN member_profiles profile ON profile.member_id = m.id
-       JOIN member_private_identities private_identity ON private_identity.member_id = m.id
+JOIN member_private_identities private_identity ON private_identity.member_id = m.id
        WHERE m.public_id = ?`,
       [id, input.title, input.summary, input.description, input.status,
         JSON.stringify(input.technologies), input.repositoryUrl, input.demoUrl,
-        JSON.stringify(input.roles), authorId],
+        JSON.stringify(input.roles ?? []), authorId],
     );
     if (result.affectedRows !== 1) throw new TypeError("Compte incomplet.");
     const [authors] = await connection.execute<(RowDataPacket & { id: number })[]>(
@@ -167,16 +167,16 @@ export async function updateProject(
     }
     if (project.authorId !== authorId) {
       await connection.rollback(); return "forbidden";
-    }
+}
     await connection.execute(
       `UPDATE member_projects
        SET title = ?, summary = ?, description = ?, status = ?,
-           technologies = ?, repository_url = ?, demo_url = ?, recruitment_roles = ?,
+           technologies = ?, repository_url = ?, demo_url = ?, recruitment_roles = COALESCE(?, recruitment_roles),
            updated_at = UTC_TIMESTAMP(3)
        WHERE id = ? AND deleted_at IS NULL`,
       [input.title, input.summary, input.description, input.status,
         JSON.stringify(input.technologies), input.repositoryUrl,
-        input.demoUrl, JSON.stringify(input.roles), project.internalId],
+        input.demoUrl, input.roles === undefined ? null : JSON.stringify(input.roles), project.internalId],
     );
     await connection.commit();
     return "ok";

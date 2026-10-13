@@ -4,6 +4,7 @@ import {
 } from "@/modules/explore/domain/explore-query";
 import type { ProjectStatus } from "@/modules/projects/domain/project-input";
 import { hiddenSql } from "@/server/reports/report-rules";
+import { searchPublications, type PublicationCard } from "@/server/discovery/publication-search";
 
 export interface ExploreMember {
   publicId: string;
@@ -30,18 +31,22 @@ type ProjectRow = RowDataPacket & Omit<ExploreProject, "technologies"> & {
 };
 
 export type ExploreResult = {
-  page: number;
+page: number;
   hasNext: boolean;
 } & (
   { kind: "members"; items: ExploreMember[] } |
-  { kind: "projects"; items: ExploreProject[] }
+  { kind: "projects"; items: ExploreProject[] } |
+  { kind: "posts"; items: PublicationCard[] }
 );
 
 export async function searchExplore(
-  connection: PoolConnection, query: ExploreQuery,
+  connection: PoolConnection, query: ExploreQuery, viewerId: string | null = null,
 ): Promise<ExploreResult> {
   if (!Number.isInteger(query.page) || query.page < 1 || query.page > exploreMaxPage) {
     throw new TypeError("Page invalide.");
+  }
+  if (query.kind === "posts") {
+    return { kind: "posts", ...await searchPublications(connection, query, viewerId) };
   }
   const windowSql = `LIMIT ${explorePageSize + 1} OFFSET ${(query.page - 1) * explorePageSize}`;
   const values: string[] = [];
@@ -101,11 +106,14 @@ export async function searchExplore(
     values.push(...Array<string>(slots).fill(query.technology));
   }
   const [rows] = await connection.execute<ProjectRow[]>(
-    `SELECT p.public_id AS id, profile.handle AS authorHandle,
+`SELECT p.public_id AS id, profile.handle AS authorHandle,
        p.title, p.summary, p.status, p.technologies
      FROM member_projects p JOIN member_profiles profile ON profile.member_id = p.member_id
      WHERE ${where.join(" AND ")}
-     ORDER BY p.created_at DESC, p.id DESC ${windowSql}`, values,
+     ORDER BY ${query.sort === "popular" ? `(SELECT COUNT(*) FROM project_votes v
+       WHERE v.project_id = p.id AND v.active = TRUE
+       AND v.updated_at >= UTC_TIMESTAMP(3) - INTERVAL 7 DAY) DESC, ` : ""}
+       p.created_at DESC, p.id DESC ${windowSql}`, values,
   );
   return { kind: "projects", ...pageInfo(rows.length),
     items: rows.slice(0, explorePageSize).map((row) => ({
