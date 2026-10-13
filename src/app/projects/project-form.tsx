@@ -44,8 +44,9 @@ export default function ProjectForm({ initial }: { initial?: PublicProject }) {
     finally { setBusy(false); }
   }
 
-  return <form onSubmit={submit} aria-busy={busy}>
-    <fieldset disabled={busy} style={{ border: 0, padding: 0 }}>
+  return <form className="editor-form" onSubmit={submit} aria-busy={busy}>
+    <p className="form-intro">Présente ce que tu construis, les technologies utilisées et les personnes que tu recherches.</p>
+    <fieldset className="editor-fields" disabled={busy}>
     <p><label>Nom du projet<br /><input name="title" required maxLength={160}
       defaultValue={initial?.title ?? ""} /></label></p>
     <p><label>Résumé<br /><input name="summary" required maxLength={300}
@@ -75,7 +76,8 @@ export default function ProjectForm({ initial }: { initial?: PublicProject }) {
     </div>)}
     <button type="button" disabled={roles.length >= 8} onClick={() => setRoles((current) => [...current, { label: "", filled: false }])}>Ajouter un rôle</button>
     <p>Après enregistrement, tu peux ajouter les captures depuis la fiche du projet.</p>
-    <button type="submit">{busy ? "Enregistrement…" : initial ? "Enregistrer" : "Présenter mon projet"}</button>
+    <div className="form-footer"><button type="submit">{busy ? "Enregistrement…" : initial ? "Enregistrer" : "Présenter mon projet"}</button>
+      <a href={initial ? `/projects/${initial.id}` : "/create"}>Annuler</a></div>
     </fieldset>
     <p role="status">{message}</p>
   </form>;

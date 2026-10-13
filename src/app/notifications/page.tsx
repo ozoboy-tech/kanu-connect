@@ -4,6 +4,7 @@ import { authPool } from "@/server/auth/db";
 import { parseNotificationFilter } from "@/modules/notifications/domain/notification-input";
 import { listNotifications } from "@/server/notifications/notification-repository";
 import NotificationsInbox from "./notifications-inbox";
+import { PageHeading } from "@/app/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -26,9 +27,8 @@ export default async function NotificationsPage({ searchParams }: {
   try { page = await listNotifications(connection, session.user.id, null, filter); }
   finally { connection.release(); }
   return <main>
-    <p><a href="/">Retour à l’accueil</a></p>
-    <h1>Mes notifications</h1>
-    <p>Les nouvelles notifications apparaissent après actualisation.</p>
+    <PageHeading title="Mes notifications" description="Les réponses, projets et échanges qui te concernent."
+      action={<a className="button button-secondary" href="/preferences">Mes préférences</a>} />
     <NotificationsInbox key={`${session.user.id}-${filter}`} initialPage={page} filter={filter} />
   </main>;
 }
